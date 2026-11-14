@@ -1,0 +1,458 @@
+// Aboard Prisma schema.
+// Target: SQLite. Money is stored as Int (pesewa). Enums are stored as String
+// (SQLite has no native ENUM type).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Enums (string-based)
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String      @id @default(cuid())
+  role         String      @default("STUDENT") // STUDENT | DRIVER | OPERATOR | PARENT | ADMIN
+  name         String
+  phone        String      @unique
+  email        String?     @unique
+  passwordHash String?
+  otpSecret   String?
+  status       String      @default("PENDING") // PENDING | ACTIVE | SUSPENDED
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  sessions       Session[]
+  notifications   Notification[]
+  auditLogs      AuditLog[]
+
+  student   Student?
+  driver    Driver?
+  operator  Operator?
+  parent    Parent?
+}
+
+model Session {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  refreshHash String    @unique
+  userAgent   String?
+  ip          String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastSeenAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Student {
+  id                 String   @id @default(cuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution        String
+  studentIdNumber    String
+  verificationStatus String   @default("PENDING") // PENDING | VERIFIED | REJECTED
+  verificationMethod String?  // ID_CARD | EMAIL | ADMIN
+  photoUrl           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  bookings  Booking[]
+  parentLinks ParentLink[]
+
+  @@unique([institution, studentIdNumber])
+  @@index([institution])
+}
+
+model Parent {
+  id     String   @id @default(cuid())
+  userId String   @unique
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  links ParentLink[]
+}
+
+model ParentLink {
+  id           String   @id @default(cuid())
+  parentId     String
+  parent       Parent   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  studentId    String
+  student      Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  consentStatus String  @default("PENDING") // PENDING | ACCEPTED | REVOKED
+  permissions  String   // JSON-serialized, no @default (SQLite)
+  acceptedAt   DateTime?
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([parentId, studentId])
+  @@index([studentId])
+}
+
+model Driver {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  operatorId    String?
+  licenseNumber String   @unique
+  status        String   @default("ACTIVE") // ACTIVE | OFFLINE | SUSPENDED
+  ratingAvg     Float    @default(0)
+  ratingCount   Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  trips      Trip[]
+  scans      Scan[]
+  operator   Operator? @relation(fields: [operatorId], references: [id])
+
+  @@index([operatorId])
+}
+
+model Operator {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName       String
+  ghanaPostAddress  String?
+  verified          Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  drivers  Driver[]
+  seatLayouts SeatLayout[]
+  buses     Bus[]
+  routes    Route[]
+  trips     Trip[]
+  payouts   Payout[]
+}
+
+model SeatLayout {
+  id          String   @id @default(cuid())
+  operatorId  String?
+  operator    Operator? @relation(fields: [operatorId], references: [id])
+  name        String
+  rows        Int
+  cols        Int
+  layout      String   // JSON, no @default (SQLite)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  buses Bus[]
+}
+
+model Bus {
+  id           String   @id @default(cuid())
+  operatorId   String
+  operator     Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  plateNumber  String   @unique
+  capacity     Int
+  seatLayoutId String?
+  seatLayout   SeatLayout? @relation(fields: [seatLayoutId], references: [id])
+  status       String   @default("ACTIVE") // ACTIVE | MAINTENANCE | RETIRED
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  trips Trip[]
+}
+
+model Route {
+  id           String   @id @default(cuid())
+  operatorId   String
+  operator     Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  originRegion String
+  originName   String
+  destRegion   String
+  destName     String
+  distanceKm   Int
+  durationMin  Int
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stops Stop[]
+  trips Trip[]
+
+  @@index([originRegion])
+  @@index([destRegion])
+  @@index([originName])
+  @@index([destName])
+  @@index([operatorId])
+}
+
+model Stop {
+  id               String   @id @default(cuid())
+  routeId          String
+  route            Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  sequence         Int
+  name             String
+  region           String
+  lat              Float
+  lng              Float
+  expectedOffsetMin Int
+  type             String   // ORIGIN | STOP | DEST
+  createdAt        DateTime @default(now())
+
+  @@index([routeId])
+  @@index([name])
+}
+
+model Trip {
+  id              String   @id @default(cuid())
+  routeId         String
+  route           Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  operatorId      String
+  operator        Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  busId           String
+  bus             Bus      @relation(fields: [busId], references: [id])
+  driverId        String?
+  driver          Driver?  @relation(fields: [driverId], references: [id])
+  departureAt     DateTime
+  arrivalAt       DateTime?
+  status          String   @default("SCHEDULED") // SCHEDULED | ACTIVE | COMPLETED | CANCELLED
+  basePricePesewa Int
+  seatsAvailable  Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  seats      Seat[]
+  seatLocks  SeatLock[]
+  bookings   Booking[]
+  locations  LocationUpdate[]
+
+  @@index([routeId])
+  @@index([operatorId])
+  @@index([departureAt])
+  @@index([status])
+}
+
+model Seat {
+  id             String   @id @default(cuid())
+  tripId         String
+  trip           Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  label          String
+  row            Int
+  col            Int
+  status         String   @default("AVAILABLE") // AVAILABLE | HELD | BOOKED
+  pricePesewa    Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  booking Booking?
+  locks   SeatLock[]
+
+  @@unique([tripId, label])
+  @@index([tripId, status])
+}
+
+model SeatLock {
+  id              String    @id @default(cuid())
+  tripId          String
+  trip            Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  seatId          String
+  seat            Seat      @relation(fields: [seatId], references: [id], onDelete: Cascade)
+  seatLabel       String
+  holderUserId    String
+  bookingIntentId String
+  expiresAt       DateTime
+  releasedAt      DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@unique([seatId, tripId])
+  @@index([tripId, expiresAt])
+  @@index([holderUserId])
+}
+
+model Booking {
+  id              String    @id @default(cuid())
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  tripId          String
+  trip            Trip      @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  seatId          String    @unique
+  seat            Seat      @relation(fields: [seatId], references: [id])
+  pickupStopId    String?
+  status          String    @default("HELD") // HELD | CONFIRMED | CANCELLED | REFUNDED | COMPLETED
+  payerRole       String    @default("STUDENT") // STUDENT | PARENT
+  payerId         String
+  amountPesewa    Int
+  idempotencyKey  String    @unique
+  cancelledAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  payments   Payment[]
+  refunds    Refund[]
+  ticket     Ticket?
+  disputes   Dispute[]
+  reviews    Review[]
+
+  @@index([studentId])
+  @@index([tripId])
+  @@index([status])
+  @@index([payerId])
+}
+
+model Payment {
+  id             String    @id @default(cuid())
+  bookingId      String
+  booking        Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  provider       String    @default("SANDBOX") // SANDBOX | HUBTEL | MTN_MOMO | VODAFONE_CASH
+  providerRef    String?
+  status         String    @default("INITIATED") // INITIATED | PENDING | SUCCESS | FAILED | REFUNDED
+  amountPesewa   Int
+  idempotencyKey String    @unique
+  rawWebhook     String? // JSON, no @default (SQLite)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  refund Refund?
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model Refund {
+  id            String    @id @default(cuid())
+  paymentId     String    @unique
+  payment       Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  bookingId     String    @unique
+  booking       Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amountPesewa Int
+  reason        String
+  status        String    @default("PENDING") // PENDING | COMPLETED | FAILED
+  policyApplied String    @default("NONE") // FULL | PARTIAL | NONE | OPERATOR_CANCEL
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Ticket {
+  id            String    @id @default(cuid())
+  bookingId     String    @unique
+  booking       Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  payloadSigned String
+  version       Int       @default(1)
+  status        String    @default("VALID") // VALID | USED | CANCELLED | EXPIRED
+  issuedAt      DateTime  @default(now())
+  usedAt        DateTime?
+
+  scans Scan[]
+
+  @@index([status])
+}
+
+model Scan {
+  id          String    @id @default(cuid())
+  ticketId    String
+  ticket      Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  driverId    String
+  driver      Driver    @relation(fields: [driverId], references: [id])
+  scannedAt   DateTime  @default(now())
+  lat         Float?
+  lng         Float?
+  offlineFlag Boolean   @default(false)
+  syncStatus  String    @default("SYNCED") // QUEUED | SYNCED | CONFLICT
+
+  @@index([ticketId])
+  @@index([driverId])
+}
+
+model LocationUpdate {
+  id         String   @id @default(cuid())
+  tripId     String
+  trip       Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  lat        Float
+  lng        Float
+  speed       Float?
+  heading     Float?
+  accuracy    Float?
+  recordedAt DateTime
+  ingestedAt DateTime @default(now())
+
+  @@index([tripId, recordedAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channel   String    @default("IN_APP") // IN_APP | SMS | EMAIL | PUSH
+  type      String
+  title     String
+  body      String
+  payload   String? // JSON, no @default (SQLite)
+  status    String    @default("PENDING") // PENDING | SENT | FAILED | READ
+  attempts  Int       @default(0)
+  sentAt    DateTime?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, status])
+  @@index([createdAt])
+}
+
+model Dispute {
+  id          String    @id @default(cuid())
+  bookingId   String
+  booking     Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  raisedBy    String
+  reason      String
+  status      String    @default("OPEN") // OPEN | INVESTIGATING | RESOLVED | CLOSED
+  resolution  String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([bookingId])
+  @@index([status])
+}
+
+model Payout {
+  id          String    @id @default(cuid())
+  operatorId  String
+  operator    Operator  @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+  amountPesewa Int
+  status      String    @default("PENDING") // PENDING | COMPLETED | FAILED
+  periodStart DateTime
+  periodEnd   DateTime
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([operatorId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String
+  booking    Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  rating     Int
+  comment     String?
+  createdAt  DateTime @default(now())
+
+  @@index([bookingId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  resource   String?
+  resourceId String?
+  ip         String?
+  userAgent  String?
+  metadata   String? // JSON
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+}
