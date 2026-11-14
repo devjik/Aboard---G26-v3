@@ -6,6 +6,7 @@ import { buildAuthUser } from "@/lib/auth/current-user";
 import { setSessionCookies } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { getCorrelationId } from "@/lib/auth/guard";
+import { notifySignIn } from "@/lib/auth/notify-sign-in";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,17 @@ export async function POST(req: NextRequest) {
     role: user.role,
     status: user.status,
   });
+
+  // persist + emit a real sign-in notification (so tracking unlocks visibly)
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || undefined;
+  await notifySignIn({
+    userId: user.id,
+    name: user.name,
+    role: user.role,
+    method: "password",
+    ip,
+  });
+
   const authUser = await buildAuthUser(user);
   return okResponse({ user: authUser }, { correlationId: corr });
 }

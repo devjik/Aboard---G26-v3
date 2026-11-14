@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   Activity,
   Bus,
@@ -39,6 +40,7 @@ import { TiltCard } from "@/components/motion/tilt-card";
 import { GradientText } from "@/components/common/gradient-text";
 import { InteractiveJourneySteps } from "@/components/common/interactive-journey-steps";
 import { FooterLinkSheet, type FooterPage } from "@/components/common/footer-link-sheet";
+import { NotificationsBell } from "@/components/common/notifications-bell";
 import { TripsExplorer } from "@/components/trips/trips-explorer";
 import type { TripCardData } from "@/components/trips/trip-card";
 import { BookingSheet } from "@/components/trips/booking-sheet";
@@ -104,6 +106,7 @@ export default function Home() {
   const [bookingTrip, setBookingTrip] = useState<TripCardData | null>(null);
   const [footerPage, setFooterPage] = useState<FooterPage | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
+  const queryClient = useQueryClient();
 
   const tripsQ = useQuery({
     queryKey: ["trips", "page-feed"],
@@ -237,7 +240,16 @@ export default function Home() {
       <SignInSheet
         open={signInOpen}
         onClose={() => setSignInOpen(false)}
-        onSignedIn={(u) => setUser(u)}
+        onSignedIn={(u) => {
+          setUser(u);
+          // invalidate notifications so the bell picks up the new sign-in notification
+          setTimeout(() => {
+            queryClient?.invalidateQueries({ queryKey: ["notifications"] });
+          }, 600);
+          toast.success("Signed in — tracking is now active", {
+            description: "A sign-in notification has been sent to your notifications bell.",
+          });
+        }}
       />
 
       <BookingSheet
@@ -316,7 +328,8 @@ function Header({
         <div className="flex items-center gap-2">
           <ThemeSwitcher className="hidden sm:flex" />
           {user ? (
-            <div className="flex items-center gap-2">
+            <>
+              <NotificationsBell userId={user.id} />
               <span className="hidden text-sm text-muted-foreground sm:block">
                 Hi, {user.name?.split(" ")[0] ?? "there"}
               </span>
@@ -329,7 +342,7 @@ function Header({
                 <LogOut className="mr-1 h-3.5 w-3.5" />
                 Sign out
               </Button>
-            </div>
+            </>
           ) : (
             <MagneticWrap>
               <Button

@@ -312,4 +312,26 @@ export const apiClient = {
       idempotencyKey: string;
     }) => api.post<PaymentInitiateResponse>("/api/v1/payments/initiate", body),
   },
+  notifications: {
+    list: (q?: { page?: number; pageSize?: number }) =>
+      api.get<{
+        items: {
+          id: string;
+          channel: string;
+          type: string;
+          title: string;
+          body: string;
+          payload: unknown;
+          status: string;
+          createdAt: string;
+          readAt: string | null;
+        }[];
+        unreadCount: number;
+        total: number;
+        page: number;
+        pageSize: number;
+      }>("/api/v1/notifications", q),
+    markRead: (id: string) =>
+      api.post<{ id: string; status: string; readAt: string | null }>(`/api/v1/notifications/${id}/read`),
+  },
 };
