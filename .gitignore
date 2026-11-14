@@ -30,8 +30,14 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (NEVER commit secrets)
 .env*
+!.env.example
+
+# database (binary, regenerable from seed)
+/db/
+*.db
+*.db-journal
 
 # vercel
 .vercel
@@ -52,3 +58,11 @@ prompt
 server.log
 # Skills directory
 /skills/
+
+# Sandbox infrastructure (not part of the app)
+/.zscripts/
+/upload/
+/download/
+
+# Prisma generated client (regenerable)
+/node_modules/.prisma/
