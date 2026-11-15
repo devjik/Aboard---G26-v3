@@ -8,18 +8,21 @@ import { verifyTicket } from "@/lib/tickets/signer";
 export const dynamic = "force-dynamic";
 
 const ScanBody = z.object({
-  token: z.string().min(10, "Missing ticket token"),
+  ref: z.string().min(4, "Missing ticket reference").optional(),
+  token: z.string().min(10, "Missing ticket token").optional(),
+}).refine((d) => d.ref || d.token, {
+  message: "Provide either a ref or a token",
 });
 
 /**
  * POST /api/v1/tickets/scan
  *
- * Driver scans a QR code → sends the token here → server verifies the
- * HMAC signature (offline-capable: the signature is checked locally,
- * no external call needed). Returns the decoded ticket details:
- * passenger name, route, seat, departure, and whether it's already been used.
+ * Driver scans a QR code (or types the ref code). Accepts either:
+ * - `ref` (short, e.g. "AB-2026-A02BY3") — looks up the ticket in the DB
+ * - `token` (the signed payload) — verifies the HMAC signature offline
  *
- * Marks the ticket as USED on first valid scan. Rejects duplicates.
+ * Returns the ticket details and marks it as USED on first valid scan.
+ * Rejects duplicates, expired, and cancelled tickets.
  */
 export async function POST(req: NextRequest) {
   const corr = getCorrelationId(req);
@@ -42,59 +45,89 @@ export async function POST(req: NextRequest) {
     }).response;
   }
 
-  const { token } = parsed.data;
+  const { ref, token } = parsed.data;
 
-  // Verify the HMAC signature locally — no network needed.
-  // This is what makes it "offline": the signature proves the ticket
-  // was issued by our server and hasn't been tampered with.
-  const payload = verifyTicket(token);
-  if (!payload) {
-    return errorResponse(ERRORS.SEAT_UNAVAILABLE, {
-      message: "Invalid ticket — signature verification failed. This ticket may be forged or corrupted.",
-      meta: { correlationId: corr },
-    }).response;
-  }
+  let ticket: any = null;
 
-  // Check if the ticket has expired
-  if (new Date(payload.expiry) < new Date()) {
-    return errorResponse(ERRORS.LOCK_EXPIRED, {
-      message: `Ticket expired. Departure was ${new Date(payload.departureAt).toLocaleString("en-GH")}.`,
-      meta: { correlationId: corr },
-    }).response;
-  }
-
-  // Look up the ticket in the DB to check if it's already been used
-  const ticket = await db.ticket.findUnique({
-    where: { bookingId: payload.bookingId },
-    include: {
-      booking: {
-        include: {
-          trip: { include: { route: true } },
-          seat: { select: { label: true } },
-          student: { include: { user: { select: { name: true } } } },
+  // If a token is provided, verify the signature (offline-capable)
+  if (token) {
+    const payload = verifyTicket(token);
+    if (!payload) {
+      return errorResponse(ERRORS.SEAT_UNAVAILABLE, {
+        message: "Invalid ticket — signature verification failed.",
+        meta: { correlationId: corr },
+      }).response;
+    }
+    ticket = await db.ticket.findUnique({
+      where: { bookingId: payload.bookingId },
+      include: {
+        booking: {
+          include: {
+            trip: { include: { route: true } },
+            seat: { select: { label: true } },
+            student: { include: { user: { select: { name: true } } } },
+          },
         },
       },
-    },
-  });
+    });
+  }
+
+  // If only a ref is provided, look up by ticket ID suffix
+  if (!ticket && ref) {
+    // The ref format is AB-YYYY-XXXXXX where XXXXXX is the last 6 chars of the ticket ID
+    const match = ref.match(/^AB-\d{4}-(.+)$/);
+    const suffix = match?.[1];
+    if (suffix) {
+      // Find tickets whose ID ends with this suffix (case-insensitive)
+      const allTickets = await db.ticket.findMany({
+        where: { status: { in: ["VALID", "USED", "CANCELLED"] } },
+        include: {
+          booking: {
+            include: {
+              trip: { include: { route: true } },
+              seat: { select: { label: true } },
+              student: { include: { user: { select: { name: true } } } },
+            },
+          },
+        },
+      });
+      ticket = allTickets.find((t: any) =>
+        t.id.slice(-6).toUpperCase() === suffix.toUpperCase()
+      );
+    }
+  }
 
   if (!ticket) {
-    // Signature is valid but no DB record — still return the decoded info
-    // (the driver can still verify offline even if the DB is unreachable)
-    return okResponse(
-      {
-        valid: true,
-        alreadyUsed: false,
-        ticketId: null,
-        payload,
-        message: "Ticket signature valid (offline verification). No DB record found.",
-      },
-      { correlationId: corr },
-    );
+    return errorResponse(ERRORS.NOT_FOUND, {
+      message: "Ticket not found. Check the reference code and try again.",
+      meta: { correlationId: corr },
+    }).response;
+  }
+
+  const ticketRef = `AB-${new Date(ticket.issuedAt).getFullYear()}-${ticket.id.slice(-6).toUpperCase()}`;
+  const route = `${ticket.booking.trip.route.originName} → ${ticket.booking.trip.route.destName}`;
+  const studentName = ticket.booking.student?.user?.name ?? "Passenger";
+  const seat = ticket.booking.seat?.label ?? "—";
+  const departure = ticket.booking.trip.departureAt.toLocaleString("en-GH", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  // Check expiry
+  if (ticket.booking.trip.departureAt < new Date(Date.now() - 24 * 60 * 60 * 1000)) {
+    return errorResponse(ERRORS.LOCK_EXPIRED, {
+      message: `Ticket expired. Departure was ${departure}.`,
+      meta: { correlationId: corr },
+    }).response;
   }
 
   if (ticket.status === "USED") {
     return errorResponse(ERRORS.CONFLICT, {
-      message: `Ticket already used. Scanned at ${ticket.usedAt?.toLocaleString("en-GH")}. Passenger: ${payload.studentName}, Seat: ${payload.seatLabel}.`,
+      message: `Ticket already used. Passenger: ${studentName}, Seat: ${seat}.`,
       meta: { correlationId: corr },
     }).response;
   }
@@ -106,7 +139,7 @@ export async function POST(req: NextRequest) {
     }).response;
   }
 
-  // Mark as USED on first valid scan
+  // Mark as USED
   await db.ticket.update({
     where: { id: ticket.id },
     data: { status: "USED", usedAt: new Date() },
@@ -116,21 +149,12 @@ export async function POST(req: NextRequest) {
     {
       valid: true,
       alreadyUsed: false,
-      ticketId: ticket.id,
-      payload,
-      passengerName: payload.studentName,
-      route: payload.route,
-      seat: payload.seatLabel,
-      departure: new Date(payload.departureAt).toLocaleString("en-GH", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      }),
-      ref: `AB-${new Date(ticket.issuedAt).getFullYear()}-${ticket.id.slice(-6).toUpperCase()}`,
-      message: "Boarding verified — ticket is valid and has been marked as used.",
+      ref: ticketRef,
+      passengerName: studentName,
+      route,
+      seat,
+      departure,
+      message: "Boarding verified — ticket is valid.",
     },
     { correlationId: corr },
   );
