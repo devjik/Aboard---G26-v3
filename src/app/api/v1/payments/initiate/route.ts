@@ -79,17 +79,45 @@ export async function POST(req: NextRequest) {
       meta: { correlationId: corr },
     }).response;
   }
+
+  // Resolve the student record for this booking.
+  // In dev (no auth) we fall back to the first seeded student so the flow works.
+  let studentId: string;
+  if (userId) {
+    const student = await db.student.findFirst({
+      where: { userId },
+      select: { id: true },
+    });
+    if (!student) {
+      return errorResponse(ERRORS.NOT_FOUND, {
+        message: "Student profile not found for this user",
+        meta: { correlationId: corr },
+      }).response;
+    }
+    studentId = student.id;
+  } else {
+    // Dev fallback: use the first available student
+    const fallback = await db.student.findFirst({ select: { id: true } });
+    if (!fallback) {
+      return errorResponse(ERRORS.NOT_FOUND, {
+        message: "No student records in the database",
+        meta: { correlationId: corr },
+      }).response;
+    }
+    studentId = fallback.id;
+  }
+
   const bookingId =
     seat.booking?.id ??
     (
       await db.booking.create({
         data: {
-          studentId: userId ?? bookingIntentId,
+          studentId,
           tripId,
           seatId: seat.id,
           status: "HELD",
           payerRole: parsed.data.payerRole,
-          payerId: userId ?? bookingIntentId,
+          payerId: userId ?? studentId,
           amountPesewa,
           idempotencyKey: bookingIntentId,
         },
