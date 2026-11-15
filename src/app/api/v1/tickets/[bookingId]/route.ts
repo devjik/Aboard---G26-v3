@@ -77,30 +77,34 @@ export async function GET(
   const payment = booking.payments[0];
   const ref = `AB-${new Date(ticket.issuedAt).getFullYear()}-${ticket.id.slice(-6).toUpperCase()}`;
 
-  // Build a human-readable QR payload that works offline:
-  // - Any phone camera scanner shows the ticket details (not raw base64)
-  // - The driver app parses + verifies the signature offline
-  const qrPayload = JSON.stringify({
-    app: "aboard",
-    type: "ticket",
-    ref,
-    name: booking.student?.user?.name ?? "Passenger",
-    route,
-    seat: booking.seat?.label ?? "—",
-    dep: booking.trip.departureAt.toLocaleString("en-GH", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    }),
-    token: ticket.payloadSigned,
+  // Build a PLAIN TEXT QR payload — not JSON, not base64.
+  // When scanned by ANY phone camera, this shows up as readable text
+  // immediately (no Google search, no internet needed). The driver
+  // app can extract the token from the last line to verify offline.
+  const depStr = booking.trip.departureAt.toLocaleString("en-GH", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   });
+  const qrPayload = [
+    "ABOARD BOARDING PASS",
+    `Ref: ${ref}`,
+    `Passenger: ${booking.student?.user?.name ?? "Passenger"}`,
+    `Route: ${route}`,
+    `Seat: ${booking.seat?.label ?? "—"}`,
+    `Departure: ${depStr}`,
+    `Status: ${ticket.status}`,
+    "",
+    `ABOARD_VERIFY:${ticket.payloadSigned}`,
+  ].join("\n");
 
   // Generate QR code as a data URL
   const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-    width: 256,
+    width: 320,
     margin: 1,
     color: { dark: "#0a0a0a", light: "#ffffff" },
   });
