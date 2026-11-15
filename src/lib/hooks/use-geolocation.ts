@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { StopT } from "@/lib/api/contracts/trips";
 
 export type GeoPermission =
@@ -29,34 +29,9 @@ export function useGeolocation() {
   const [point, setPoint] = useState<GeoPoint | null>(null);
   const watchId = useRef<number | null>(null);
 
-  useEffect(() => {
+  const startWatch = useCallback(() => {
     if (!SUPPORTED) return;
-    // Best-effort permission query
-    const anyNav = navigator as any;
-    if (anyNav.permissions?.query) {
-      anyNav.permissions
-        .query({ name: "geolocation" })
-        .then((p: any) => {
-          if (p?.state === "granted") setPermission("granted");
-          else if (p?.state === "denied") setPermission("denied");
-          else setPermission("prompt");
-        })
-        .catch(() => undefined);
-    }
-    return () => {
-      if (watchId.current !== null) {
-        navigator.geolocation.clearWatch(watchId.current);
-        watchId.current = null;
-      }
-    };
-  }, []);
-
-  function request() {
-    if (!SUPPORTED) {
-      setPermission("unsupported");
-      return;
-    }
-    if (watchId.current !== null) return;
+    if (watchId.current !== null) return; // already watching
     watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         setPermission("granted");
@@ -78,6 +53,49 @@ export function useGeolocation() {
       },
       { enableHighAccuracy: true, maximumAge: 4000, timeout: 15000 },
     );
+  }, []);
+
+  useEffect(() => {
+    if (!SUPPORTED) return;
+    const anyNav = navigator as any;
+    if (anyNav.permissions?.query) {
+      anyNav.permissions
+        .query({ name: "geolocation" })
+        .then((p: any) => {
+          const apply = () => {
+            if (p?.state === "granted") {
+              setPermission("granted");
+              // permission already granted (e.g. via the sign-in modal) —
+              // start watching immediately so the user's position appears
+              // on the map the instant a trip is selected.
+              startWatch();
+            } else if (p?.state === "denied") {
+              setPermission("denied");
+            } else {
+              setPermission("prompt");
+            }
+          };
+          apply();
+          // listen for future changes (e.g. user grants via the modal
+          // while this hook is already mounted)
+          p.onchange = apply;
+        })
+        .catch(() => undefined);
+    }
+    return () => {
+      if (watchId.current !== null) {
+        navigator.geolocation.clearWatch(watchId.current);
+        watchId.current = null;
+      }
+    };
+  }, [startWatch]);
+
+  function request() {
+    if (!SUPPORTED) {
+      setPermission("unsupported");
+      return;
+    }
+    startWatch();
   }
 
   return { permission, point, request };

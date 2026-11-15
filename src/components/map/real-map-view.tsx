@@ -73,7 +73,15 @@ export function RealMapView({
     );
   }
 
-  if (geo.permission === "unknown" && !skipped) {
+  // If permission is genuinely "prompt" (browser will ask) or "denied",
+  // show the permission card. If "granted" (or still resolving from the
+  // sign-in modal), go straight to the map — the user's real position
+  // will appear the instant the GPS reading arrives.
+  if (
+    !skipped &&
+    (geo.permission === "prompt" || geo.permission === "denied") &&
+    !geo.point
+  ) {
     return (
       <Card
         className={cn(
@@ -125,18 +133,28 @@ export function RealMapView({
           stops={stops}
           routeLine={stops}
         />
+        {/* status pills */}
         <div className="absolute left-3 top-3 z-[500] flex flex-wrap items-center gap-2">
           <StatusPill
             tone={userPosition ? "success" : "neutral"}
             dot
             pulse={!!userPosition}
           >
-            {userPosition ? "Location shared" : "Location off"}
+            {userPosition ? "You are here" : "Locating…"}
           </StatusPill>
           <StatusPill tone="accent" dot>
-            Simulated GPS
+            Bus (simulated)
           </StatusPill>
         </div>
+        {/* live coordinates */}
+        {userPosition && (
+          <div className="absolute bottom-3 left-3 z-[500] rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground shadow-card backdrop-blur">
+            {userPosition.lat.toFixed(4)}, {userPosition.lng.toFixed(4)}
+            {typeof userPosition.accuracy === "number" && (
+              <span className="ml-1">±{Math.round(userPosition.accuracy)}m</span>
+            )}
+          </div>
+        )}
       </div>
       <Card className="space-y-3 p-4">
         <div className="flex items-center justify-between">
@@ -176,10 +194,32 @@ export function RealMapView({
         </AnimatePresence>
         {tripDetail && (
           <div className="border-t border-border pt-3 text-xs text-muted-foreground">
-            {tripDetail.stops?.length ?? 0} stops ·{" "}
-            {tripDetail.basePricePesewa
-              ? formatGHS(tripDetail.basePricePesewa)
-              : ""}
+            <div className="mb-1">
+              {tripDetail.stops?.length ?? 0} stops ·{" "}
+              {tripDetail.basePricePesewa
+                ? formatGHS(tripDetail.basePricePesewa)
+                : ""}
+            </div>
+            {userPosition && tripDetail.stops?.[0] && (
+              <div className="flex items-center gap-1.5 rounded-lg bg-primary/5 px-2 py-1.5 text-primary">
+                <LocateFixed className="h-3 w-3" />
+                <span className="font-medium">
+                  {haversineKm(
+                    userPosition.lat,
+                    userPosition.lng,
+                    tripDetail.stops[0].lat,
+                    tripDetail.stops[0].lng,
+                  ).toFixed(1)}{" "}
+                  km from you to {tripDetail.stops[0].name}
+                </span>
+              </div>
+            )}
+            {userPosition && (
+              <div className="mt-1 text-[10px] text-muted-foreground/70">
+                Your position updates live · accuracy ±
+                {Math.round(userPosition.accuracy ?? 0)}m
+              </div>
+            )}
           </div>
         )}
       </Card>
@@ -189,3 +229,23 @@ export function RealMapView({
 
 // silence unused import
 void useEffect;
+
+/** Great-circle distance between two lat/lng points, in kilometres. */
+function haversineKm(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
+  const R = 6371; // Earth radius in km
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
