@@ -248,6 +248,13 @@ export const apiClient = {
       ),
     otpVerify: (body: OtpVerifyT) =>
       api.post<{ user: AuthUserT }>("/api/v1/auth/otp/verify", body),
+    emailOtpRequest: (body: { email: string }) =>
+      api.post<{ otpSent: boolean; channel: string; devCode?: string }>(
+        "/api/v1/auth/email-otp/request",
+        body,
+      ),
+    emailOtpVerify: (body: { email: string; code: string }) =>
+      api.post<{ user: AuthUserT }>("/api/v1/auth/email-otp/verify", body),
     login: (body: PasswordLoginT) =>
       api.post<{ user: AuthUserT }>("/api/v1/auth/login", body),
     register: (body: StudentRegisterT) =>

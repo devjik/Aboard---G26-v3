@@ -41,6 +41,7 @@ import { GradientText } from "@/components/common/gradient-text";
 import { InteractiveJourneySteps } from "@/components/common/interactive-journey-steps";
 import { FooterLinkSheet, type FooterPage } from "@/components/common/footer-link-sheet";
 import { NotificationsBell } from "@/components/common/notifications-bell";
+import { LocationPermissionModal } from "@/components/common/location-permission-modal";
 import { TripsExplorer } from "@/components/trips/trips-explorer";
 import type { TripCardData } from "@/components/trips/trip-card";
 import { BookingSheet } from "@/components/trips/booking-sheet";
@@ -107,6 +108,7 @@ export default function Home() {
   const [footerPage, setFooterPage] = useState<FooterPage | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
   const queryClient = useQueryClient();
+  const [locationPromptOpen, setLocationPromptOpen] = useState(false);
 
   const tripsQ = useQuery({
     queryKey: ["trips", "page-feed"],
@@ -246,9 +248,21 @@ export default function Home() {
           setTimeout(() => {
             queryClient?.invalidateQueries({ queryKey: ["notifications"] });
           }, 600);
-          toast.success("Signed in — tracking is now active", {
-            description: "A sign-in notification has been sent to your notifications bell.",
+          toast.success("Signed in successfully", {
+            description: "Now let's enable your location for live tracking.",
           });
+          // auto-pop the location permission prompt after sign-in
+          setTimeout(() => setLocationPromptOpen(true), 800);
+        }}
+      />
+
+      {/* Location permission prompt — auto-pops after sign-in */}
+      <LocationPermissionModal
+        open={locationPromptOpen}
+        onClose={() => setLocationPromptOpen(false)}
+        onGranted={() => {
+          // switch to the Live Map so the user sees their position immediately
+          setView("map");
         }}
       />
 

@@ -24,6 +24,18 @@ export const PasswordLogin = z.object({
 });
 export type PasswordLoginT = z.infer<typeof PasswordLogin>;
 
+// Email (Gmail) OTP sign-in — enter your email, get a 6-digit code, verify.
+export const EmailOtpRequest = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+export type EmailOtpRequestT = z.infer<typeof EmailOtpRequest>;
+
+export const EmailOtpVerify = z.object({
+  email: z.string().email("Enter a valid email address"),
+  code: z.string().regex(/^\d{6}$/, "Code must be 6 digits"),
+});
+export type EmailOtpVerifyT = z.infer<typeof EmailOtpVerify>;
+
 export const StudentRegister = z.object({
   name: z.string().min(2, "Name is too short"),
   phone: z.string().regex(ghanaPhoneRegex, "Invalid Ghana phone number"),

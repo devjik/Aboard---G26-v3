@@ -7,7 +7,8 @@ export type OtpPurpose =
   | "register"
   | "login"
   | "reset_password"
-  | "verify_phone";
+  | "verify_phone"
+  | "email_login";
 
 interface OtpRecord {
   code: string;

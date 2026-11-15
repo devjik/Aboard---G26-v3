@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { APP_NAME } from "@/lib/config/app";
-import { Loader2, ShieldCheck, Smartphone } from "lucide-react";
+import { Loader2, ShieldCheck, Smartphone, Mail } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
-type Mode = "password" | "otp";
+type Mode = "password" | "otp" | "gmail";
 type OtpStage = "request" | "verify";
 
 export function SignInSheet({
@@ -32,6 +32,9 @@ export function SignInSheet({
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [emailStage, setEmailStage] = useState<OtpStage>("request");
+  const [emailDevCode, setEmailDevCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -41,6 +44,9 @@ export function SignInSheet({
       setPassword("");
       setCode("");
       setDevCode(null);
+      setEmail("");
+      setEmailStage("request");
+      setEmailDevCode(null);
     }
   }, [open]);
 
@@ -81,6 +87,33 @@ export function SignInSheet({
     },
   });
 
+  // Gmail (email OTP) sign-in
+  const emailRequestMut = useMutation({
+    mutationFn: () => apiClient.auth.emailOtpRequest({ email }),
+    onSuccess: (data) => {
+      setEmailDevCode(data.devCode ?? null);
+      setEmailStage("verify");
+      toast.success("Code sent to your email", {
+        description: data.devCode ? `Dev code: ${data.devCode}` : "Check your inbox.",
+      });
+    },
+    onError: (e: any) => {
+      toast.error(e instanceof ApiError ? e.message : "Could not send code");
+    },
+  });
+
+  const emailVerifyMut = useMutation({
+    mutationFn: () => apiClient.auth.emailOtpVerify({ email, code }),
+    onSuccess: (data) => {
+      toast.success(`Welcome back, ${data.user.name}`);
+      onSignedIn?.(data.user);
+      onClose();
+    },
+    onError: (e: any) => {
+      toast.error(e instanceof ApiError ? e.message : "Verification failed");
+    },
+  });
+
   return (
     <BottomSheet
       open={open}
@@ -95,12 +128,12 @@ export function SignInSheet({
     >
       <div className="space-y-4">
         <div className="relative inline-flex w-full rounded-full border border-border bg-card p-1">
-          {(["password", "otp"] as Mode[]).map((m) => (
+          {(["password", "otp", "gmail"] as Mode[]).map((m) => (
             <button
               key={m}
               onClick={() => setMode(m)}
               className={cn(
-                "relative flex-1 rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                "relative flex-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors sm:text-sm",
                 mode === m
                   ? "text-primary-foreground"
                   : "text-muted-foreground hover:text-foreground",
@@ -114,7 +147,7 @@ export function SignInSheet({
                 />
               )}
               <span className="relative z-10 flex items-center justify-center gap-1">
-                {m === "password" ? "Password" : "OTP"}
+                {m === "password" ? "Password" : m === "otp" ? "Phone OTP" : "Gmail"}
               </span>
             </button>
           ))}
@@ -241,13 +274,102 @@ export function SignInSheet({
               )}
             </motion.div>
           )}
+          {mode === "gmail" && (
+            <motion.div
+              key="gmail"
+              initial={{ opacity: 0, x: 8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              className="space-y-3"
+            >
+              <div>
+                <Label htmlFor="si-email">Email address</Label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="si-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@gmail.com"
+                    className="pl-9"
+                    disabled={emailStage === "verify"}
+                  />
+                </div>
+              </div>
+              {emailStage === "verify" && (
+                <div>
+                  <Label htmlFor="si-email-code">Enter the code sent to your email</Label>
+                  <InputOTP
+                    id="si-email-code"
+                    maxLength={6}
+                    value={code}
+                    onChange={(v) => setCode(v)}
+                  >
+                    <InputOTPGroup>
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <InputOTPSlot key={i} index={i} />
+                      ))}
+                    </InputOTPGroup>
+                  </InputOTP>
+                  {emailDevCode && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      <Mail className="mr-1 inline-block h-3 w-3" />
+                      Dev code: <code className="font-mono">{emailDevCode}</code>
+                    </p>
+                  )}
+                </div>
+              )}
+              {emailStage === "request" ? (
+                <Button
+                  onClick={() => emailRequestMut.mutate()}
+                  disabled={emailRequestMut.isPending || !email}
+                  className="w-full bg-grad-primary"
+                >
+                  {emailRequestMut.isPending ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Mail className="mr-1 h-4 w-4" />
+                  )}
+                  Send code to email
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setEmailStage("request");
+                      setCode("");
+                      setEmailDevCode(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={() => emailVerifyMut.mutate()}
+                    disabled={emailVerifyMut.isPending || code.length !== 6}
+                    className="flex-1 bg-grad-primary"
+                  >
+                    {emailVerifyMut.isPending ? (
+                      <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                    ) : null}
+                    Verify &amp; sign in
+                  </Button>
+                </div>
+              )}
+              <p className="text-center text-[11px] text-muted-foreground">
+                We'll send a 6-digit code to your inbox. Works with Gmail and any email provider.
+              </p>
+            </motion.div>
+          )}
         </AnimatePresence>
 
         <div className="rounded-xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
           <p className="font-medium text-foreground">Demo accounts</p>
-          <p>Admin: +233200000001 / password123</p>
-          <p>Student: +233240000001 / password123</p>
-          <p>Driver: +233270000001 / password123</p>
+          <p>Password: +233240000001 / password123</p>
+          <p>Gmail: student1@ucc.edu.gh (code shown in dev)</p>
+          <p>Admin: admin@aboard.app / password123</p>
         </div>
       </div>
     </BottomSheet>
