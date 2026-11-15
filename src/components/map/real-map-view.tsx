@@ -12,6 +12,7 @@ import {
   ShieldAlert,
   SkipForward,
   Radio,
+  Clock,
 } from "lucide-react";
 import { useGeolocation, useDriverSimulation } from "@/lib/hooks/use-geolocation";
 import { useTrackingSocket, distanceMeters, BOARDING_THRESHOLD_M, type DriverPosition } from "@/lib/hooks/use-tracking-socket";
@@ -31,9 +32,10 @@ const MapInner = dynamic(() => import("./map-inner").then((m) => m.MapInner), {
 
 export interface RealMapViewProps {
   user?: { id: string; name: string; role: string } | null;
-  trips?: Array<{ id: string; originName: string; destName: string }>;
+  trips?: Array<{ id: string; originName: string; destName: string; departureAt?: string }>;
   tripDetail?: any;
   onSelectTrip?: (tripId: string) => void;
+  onBookTrip?: (tripId: string) => void;
   className?: string;
 }
 
@@ -42,6 +44,7 @@ export function RealMapView({
   trips,
   tripDetail,
   onSelectTrip,
+  onBookTrip,
   className,
 }: RealMapViewProps) {
   const geo = useGeolocation();
@@ -252,6 +255,11 @@ export function RealMapView({
                 <span className={cn("truncate flex-1", tripDetail?.id === t.id ? "font-semibold text-foreground" : "text-muted-foreground")}>
                   {t.originName} → {t.destName}
                 </span>
+                {t.departureAt && (
+                  <span className="text-[9px] text-muted-foreground/60">
+                    {new Date(t.departureAt).toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -265,6 +273,50 @@ export function RealMapView({
             </div>
           )}
         </div>
+
+        {/* ── Booking bar — appears at the bottom when a trip is selected ── */}
+        {/* Shows the route + price + a "Book" button. Does NOT auto-open the booking sheet. */}
+        <AnimatePresence>
+          {tripDetail && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 20 }}
+              transition={{ type: "spring", stiffness: 300, damping: 28 }}
+              className="absolute bottom-3 left-1/2 z-40 flex w-[calc(100%-1.5rem)] max-w-md -translate-x-1/2 items-center gap-3 rounded-2xl border border-border bg-card/95 px-4 py-3 shadow-card backdrop-blur-md"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="size-3 shrink-0 text-primary" />
+                  <span className="truncate text-sm font-semibold">
+                    {tripDetail.originName} → {tripDetail.destName}
+                  </span>
+                </div>
+                <div className="mt-0.5 flex items-center gap-3 text-[11px] text-muted-foreground">
+                  <span className="inline-flex items-center gap-0.5">
+                    <Clock className="size-2.5" />
+                    {tripDetail.departureAt
+                      ? new Date(tripDetail.departureAt).toLocaleString("en-GH", { weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false })
+                      : ""}
+                  </span>
+                  <span>{tripDetail.stops?.length ?? 0} stops</span>
+                  <span>{tripDetail.durationMin ?? "—"} min</span>
+                </div>
+              </div>
+              <div className="flex flex-col items-end gap-1">
+                <div className="font-display text-base font-bold text-grad-primary">
+                  {tripDetail.basePricePesewa ? formatGHS(tripDetail.basePricePesewa) : ""}
+                </div>
+                <button
+                  onClick={() => onBookTrip?.(tripDetail.id)}
+                  className="rounded-full bg-grad-primary px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition-transform hover:scale-105"
+                >
+                  Book this trip
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

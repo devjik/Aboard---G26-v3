@@ -121,6 +121,7 @@ export default function Home() {
   const [user, setUser] = useState<any>(null);
   const [signInOpen, setSignInOpen] = useState(false);
   const [bookingTrip, setBookingTrip] = useState<TripCardData | null>(null);
+  const [mapSelectedTripId, setMapSelectedTripId] = useState<string | null>(null);
   const [footerPage, setFooterPage] = useState<FooterPage | null>(null);
   const [mobileNav, setMobileNav] = useState(false);
   const queryClient = useQueryClient();
@@ -141,9 +142,9 @@ export default function Home() {
     queryFn: () => apiClient.trips.search({ page: 1, pageSize: 24 }),
   });
   const tripDetailQ = useQuery({
-    queryKey: ["trip", bookingTrip?.id],
-    queryFn: () => apiClient.trips.detail(bookingTrip!.id),
-    enabled: !!bookingTrip,
+    queryKey: ["trip", mapSelectedTripId],
+    queryFn: () => apiClient.trips.detail(mapSelectedTripId!),
+    enabled: !!mapSelectedTripId,
   });
 
   const trips: TripCardData[] = (tripsQ.data?.items ?? []).map((t: any) => ({
@@ -242,6 +243,11 @@ export default function Home() {
                 trips={allTrips}
                 tripDetail={tripDetailQ.data}
                 onSelectTrip={(id) => {
+                  // Just preview the route on the map — do NOT open booking
+                  setMapSelectedTripId(id);
+                }}
+                onBookTrip={(id) => {
+                  // User explicitly tapped "Book this trip" — now open the booking sheet
                   const t = allTrips.find((x: any) => x.id === id);
                   if (t) setBookingTrip(t as any);
                 }}
