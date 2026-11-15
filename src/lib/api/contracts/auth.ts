@@ -21,6 +21,7 @@ export type OtpVerifyT = z.infer<typeof OtpVerify>;
 export const PasswordLogin = z.object({
   phone: z.string().regex(ghanaPhoneRegex, "Invalid Ghana phone number"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  expectedRole: z.enum(["STUDENT", "DRIVER", "PARENT", "ADMIN"]).optional(),
 });
 export type PasswordLoginT = z.infer<typeof PasswordLogin>;
 

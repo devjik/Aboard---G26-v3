@@ -28,12 +28,20 @@ export async function POST(req: NextRequest) {
       meta: { correlationId: corr },
     }).response;
   }
-  const { phone, password } = parsed.data;
+  const { phone, password, expectedRole } = parsed.data;
 
   const user = await db.user.findUnique({ where: { phone } });
   if (!user || !user.passwordHash) {
     return errorResponse(ERRORS.UNAUTHENTICATED, {
       message: "Invalid credentials",
+      meta: { correlationId: corr },
+    }).response;
+  }
+  // Enforce the role the user selected on the sign-in screen.
+  // E.g. a student can't sign in through the "Driver" tile.
+  if (expectedRole && user.role !== expectedRole) {
+    return errorResponse(ERRORS.FORBIDDEN, {
+      message: `This account is a ${user.role.toLowerCase()}, not a ${expectedRole.toLowerCase()}. Sign in under the correct role.`,
       meta: { correlationId: corr },
     }).response;
   }

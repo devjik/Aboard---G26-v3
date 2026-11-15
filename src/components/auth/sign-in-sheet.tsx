@@ -10,12 +10,20 @@ import { Label } from "@/components/ui/label";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { apiClient, ApiError } from "@/lib/api/client";
 import { APP_NAME } from "@/lib/config/app";
-import { Loader2, ShieldCheck, Smartphone, Mail } from "lucide-react";
+import { Loader2, ShieldCheck, Smartphone, Mail, GraduationCap, Bus, UserCog, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 type Mode = "password" | "otp" | "gmail";
 type OtpStage = "request" | "verify";
+type RoleChoice = "STUDENT" | "DRIVER" | "PARENT" | "ADMIN";
+
+const ROLES: Array<{ id: RoleChoice; label: string; icon: React.ReactNode; desc: string }> = [
+  { id: "STUDENT", label: "Student", icon: <GraduationCap className="size-5" />, desc: "Book trips & track" },
+  { id: "DRIVER", label: "Driver", icon: <Bus className="size-5" />, desc: "Broadcast bus GPS" },
+  { id: "PARENT", label: "Guardian", icon: <User className="size-5" />, desc: "Follow your ward" },
+  { id: "ADMIN", label: "Admin", icon: <UserCog className="size-5" />, desc: "Manage everything" },
+];
 
 export function SignInSheet({
   open,
@@ -35,6 +43,7 @@ export function SignInSheet({
   const [email, setEmail] = useState("");
   const [emailStage, setEmailStage] = useState<OtpStage>("request");
   const [emailDevCode, setEmailDevCode] = useState<string | null>(null);
+  const [selectedRole, setSelectedRole] = useState<RoleChoice | null>(null);
 
   useEffect(() => {
     if (open) {
@@ -52,7 +61,7 @@ export function SignInSheet({
 
   const loginMut = useMutation({
     mutationFn: () =>
-      apiClient.auth.login({ phone, password }),
+      apiClient.auth.login({ phone, password, expectedRole: selectedRole ?? undefined }),
     onSuccess: (data) => {
       toast.success(`Welcome back, ${data.user.name}`);
       onSignedIn?.(data.user);
@@ -127,6 +136,64 @@ export function SignInSheet({
       className="sm:max-w-md"
     >
       <div className="space-y-4">
+        {/* Role selector — user chooses who they are before signing in */}
+        <AnimatePresence mode="wait">
+          {!selectedRole ? (
+            <motion.div
+              key="role-select"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0, y: -8 }}
+            >
+              <p className="mb-3 text-center text-sm font-medium text-muted-foreground">
+                I am signing in as…
+              </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                {ROLES.map((r) => (
+                  <motion.button
+                    key={r.id}
+                    whileHover={{ y: -2 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setSelectedRole(r.id)}
+                    className="group flex flex-col items-center gap-2 rounded-2xl border border-border bg-card p-4 text-center transition-colors hover:border-primary hover:bg-primary/5"
+                  >
+                    <span className="flex size-11 items-center justify-center rounded-2xl bg-grad-primary text-white shadow-sm transition-transform group-hover:scale-105">
+                      {r.icon}
+                    </span>
+                    <div>
+                      <div className="text-sm font-semibold">{r.label}</div>
+                      <div className="text-[10px] text-muted-foreground">{r.desc}</div>
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+              <p className="mt-3 text-center text-[11px] text-muted-foreground">
+                Your account must match the role you pick.
+              </p>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="auth-form"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="space-y-4"
+            >
+              {/* chosen role banner */}
+              <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-3 py-2">
+                <div className="flex items-center gap-2">
+                  {ROLES.find((r) => r.id === selectedRole)?.icon}
+                  <span className="text-sm font-semibold">
+                    {ROLES.find((r) => r.id === selectedRole)?.label}
+                  </span>
+                </div>
+                <button
+                  onClick={() => { setSelectedRole(null); setMode("password"); }}
+                  className="text-xs text-muted-foreground underline hover:text-foreground"
+                >
+                  Change role
+                </button>
+              </div>
+
         <div className="relative inline-flex w-full rounded-full border border-border bg-card p-1">
           {(["password", "otp", "gmail"] as Mode[]).map((m) => (
             <button
@@ -365,11 +432,15 @@ export function SignInSheet({
           )}
         </AnimatePresence>
 
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="rounded-xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
           <p className="font-medium text-foreground">Demo accounts</p>
-          <p>Password: +233240000001 / password123</p>
-          <p>Gmail: student1@ucc.edu.gh (code shown in dev)</p>
-          <p>Admin: admin@aboard.app / password123</p>
+          <p>Student: +233240000001 / password123</p>
+          <p>Driver: +233270000001 / password123</p>
+          <p>Admin: +233200000001 / password123</p>
         </div>
       </div>
     </BottomSheet>
