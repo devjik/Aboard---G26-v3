@@ -177,21 +177,19 @@ export function RealMapView({
     : null;
 
   return (
-    <div className={cn("grid gap-4 lg:grid-cols-[1fr_320px]", className)}>
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-card shadow-card">
+    <div className={cn("relative", className)}>
+      {/* Full-width map — the trip list floats over it */}
+      <div className="relative h-[480px] overflow-hidden rounded-2xl border border-border bg-card shadow-card sm:h-[580px]">
         <MapInner
           userPosition={userPosition}
           driverPosition={driver}
           stops={stops}
           routeLine={stops}
         />
-        {/* status pills */}
+
+        {/* status pills — top left */}
         <div className="absolute left-3 top-3 z-30 flex flex-wrap items-center gap-2">
-          <StatusPill
-            tone={userPosition ? "success" : "neutral"}
-            dot
-            pulse={!!userPosition}
-          >
+          <StatusPill tone={userPosition ? "success" : "neutral"} dot pulse={!!userPosition}>
             {userPosition ? "You are here" : "Locating…"}
           </StatusPill>
           {liveDriverPos ? (
@@ -203,89 +201,71 @@ export function RealMapView({
               Bus (simulated)
             </StatusPill>
           )}
-          {connected && (
-            <StatusPill tone="primary" dot>
-              <Radio className="mr-1 inline size-3" /> Connected
-            </StatusPill>
-          )}
         </div>
-        {/* live coordinates */}
+
+        {/* live coordinates — bottom left */}
         {userPosition && (
-          <div className="absolute bottom-3 left-3 z-30 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground shadow-card backdrop-blur">
+          <div className="absolute bottom-3 left-3 z-30 rounded-lg border border-border bg-card/80 px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground shadow-card backdrop-blur">
             {userPosition.lat.toFixed(4)}, {userPosition.lng.toFixed(4)}
             {typeof userPosition.accuracy === "number" && (
               <span className="ml-1">±{Math.round(userPosition.accuracy)}m</span>
             )}
           </div>
         )}
-      </div>
-      <Card className="space-y-3 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-display text-sm font-semibold">
-            Live trips
-          </h3>
-          <Bus className="h-4 w-4 text-primary" />
-        </div>
-        <AnimatePresence mode="popLayout">
-          {(trips ?? tripList.data?.items ?? []).slice(0, 8).map((t) => (
-            <motion.button
-              key={t.id}
-              layout
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -8 }}
-              onClick={() => onSelectTrip?.(t.id)}
-              className={cn(
-                "flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 text-left text-sm transition-colors hover:border-primary/40",
-                tripDetail?.id === t.id && "border-primary bg-primary/5",
-              )}
-            >
-              <div>
-                <div className="font-medium">
-                  <MapPin className="mr-1 inline-block h-3 w-3 text-primary" />
-                  {t.originName} → {t.destName}
-                </div>
-                <div className="text-[11px] text-muted-foreground">
-                  {t.id.slice(-8)}
-                </div>
-              </div>
-              <StatusPill tone="success" dot pulse>
-                Live
-              </StatusPill>
-            </motion.button>
-          ))}
-        </AnimatePresence>
-        {tripDetail && (
-          <div className="border-t border-border pt-3 text-xs text-muted-foreground">
-            <div className="mb-1">
-              {tripDetail.stops?.length ?? 0} stops ·{" "}
-              {tripDetail.basePricePesewa
-                ? formatGHS(tripDetail.basePricePesewa)
-                : ""}
-            </div>
-            {userPosition && tripDetail.stops?.[0] && (
-              <div className="flex items-center gap-1.5 rounded-lg bg-primary/5 px-2 py-1.5 text-primary">
-                <LocateFixed className="h-3 w-3" />
-                <span className="font-medium">
-                  {haversineKm(
-                    userPosition.lat,
-                    userPosition.lng,
-                    tripDetail.stops[0].lat,
-                    tripDetail.stops[0].lng,
-                  ).toFixed(1)}{" "}
-                  km from you to {tripDetail.stops[0].name}
-                </span>
-              </div>
-            )}
-            {userPosition && (
-              <div className="mt-1 text-[10px] text-muted-foreground/70">
-                Your position updates live · accuracy ±
-                {Math.round(userPosition.accuracy ?? 0)}m
-              </div>
-            )}
+
+        {/* distance to pickup — bottom right */}
+        {userPosition && tripDetail?.stops?.[0] && (
+          <div className="absolute bottom-3 right-3 z-30 rounded-lg border border-primary/30 bg-card/80 px-3 py-1.5 text-[11px] backdrop-blur">
+            <LocateFixed className="mr-1 inline size-3 text-primary" />
+            <span className="font-semibold text-primary">
+              {haversineKm(userPosition.lat, userPosition.lng, tripDetail.stops[0].lat, tripDetail.stops[0].lng).toFixed(1)} km
+            </span>
+            <span className="text-muted-foreground"> to {tripDetail.stops[0].name}</span>
           </div>
         )}
-      </Card>
+
+        {/* ── Floating trip list — far right, compact, semi-transparent ── */}
+        <div className="absolute right-3 top-12 z-30 w-56 max-h-[calc(100%-6rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card/70 p-2.5 shadow-card backdrop-blur-md scrollbar-thin">
+          <div className="mb-2 flex items-center gap-1.5 px-1">
+            <Bus className="size-3.5 text-primary" />
+            <h3 className="font-display text-xs font-semibold text-foreground">Live trips</h3>
+            <span className="ml-auto text-[10px] text-muted-foreground">
+              {(trips ?? tripList.data?.items ?? []).slice(0, 8).length}
+            </span>
+          </div>
+          <div className="space-y-1">
+            {(trips ?? tripList.data?.items ?? []).slice(0, 8).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => onSelectTrip?.(t.id)}
+                className={cn(
+                  "flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-[11px] transition-all",
+                  tripDetail?.id === t.id
+                    ? "border-primary bg-primary/10 shadow-sm"
+                    : "border-transparent bg-transparent hover:bg-card/60",
+                )}
+              >
+                <span className={cn(
+                  "size-1.5 shrink-0 rounded-full",
+                  tripDetail?.id === t.id ? "bg-primary animate-pulse" : "bg-muted-foreground/40",
+                )} />
+                <span className={cn("truncate flex-1", tripDetail?.id === t.id ? "font-semibold text-foreground" : "text-muted-foreground")}>
+                  {t.originName} → {t.destName}
+                </span>
+              </button>
+            ))}
+          </div>
+          {/* selected trip mini-info */}
+          {tripDetail && (
+            <div className="mt-2 border-t border-border/40 pt-2 text-[10px] text-muted-foreground">
+              <div className="flex items-center justify-between px-1">
+                <span>{tripDetail.stops?.length ?? 0} stops</span>
+                <span>{tripDetail.basePricePesewa ? formatGHS(tripDetail.basePricePesewa) : ""}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
