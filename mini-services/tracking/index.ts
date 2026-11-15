@@ -26,6 +26,11 @@ const io = new IoServer(httpServer, {
 });
 
 const rooms = new Map<string, Set<string>>();
+// Latest known driver position per trip — so students joining late
+// immediately see where the bus is.
+const latestDriverPos = new Map<string, {
+  lat: number; lng: number; speed?: number; heading?: number; accuracy?: number; ts: string;
+}>();
 
 io.on("connection", (socket) => {
   socket.on("subscribe:trip", (tripId: string) => {
@@ -33,6 +38,12 @@ io.on("connection", (socket) => {
     socket.join(`trip:${tripId}`);
     if (!rooms.has(tripId)) rooms.set(tripId, new Set());
     rooms.get(tripId)!.add(socket.id);
+
+    // Send the latest known driver position immediately (if any)
+    const latest = latestDriverPos.get(tripId);
+    if (latest) {
+      socket.emit("trip:location", { tripId, ...latest, ingestedAt: new Date().toISOString() });
+    }
   });
 
   socket.on("unsubscribe:trip", (tripId: string) => {
@@ -62,10 +73,30 @@ io.on("connection", (socket) => {
     ) {
       return;
     }
+    const ts = payload.recordedAt ?? new Date().toISOString();
+    const pos = {
+      lat: payload.lat,
+      lng: payload.lng,
+      speed: payload.speed,
+      heading: payload.heading,
+      accuracy: payload.accuracy,
+      ts,
+    };
+    // Store the latest position for late joiners
+    latestDriverPos.set(payload.tripId, pos);
+    // Broadcast to all subscribers on that trip
     socket.to(`trip:${payload.tripId}`).emit("trip:location", {
       ...payload,
+      ...pos,
       ingestedAt: new Date().toISOString(),
     });
+  });
+
+  // Driver can stop broadcasting (clear the stored position)
+  socket.on("driver:stop", (tripId: string) => {
+    if (typeof tripId !== "string") return;
+    latestDriverPos.delete(tripId);
+    socket.to(`trip:${tripId}`).emit("trip:stopped", { tripId });
   });
 
   socket.on("disconnect", () => {

@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 import {
   Bus,
   LocateFixed,
   MapPin,
   ShieldAlert,
   SkipForward,
+  Radio,
 } from "lucide-react";
 import { useGeolocation, useDriverSimulation } from "@/lib/hooks/use-geolocation";
+import { useTrackingSocket, distanceMeters, BOARDING_THRESHOLD_M, type DriverPosition } from "@/lib/hooks/use-tracking-socket";
 import { Button } from "@/components/ui/button";
 import { StatusPill } from "@/components/common/status-pill";
 import { Card } from "@/components/ui/card";
@@ -49,11 +52,60 @@ export function RealMapView({
     return [];
   }, [tripDetail]);
 
-  const driver = useDriverSimulation(stops);
+  // Subscribe to REAL driver positions via Socket.IO
+  const { connected, subscribe } = useTrackingSocket();
+  const [liveDriverPos, setLiveDriverPos] = useState<DriverPosition | null>(null);
+
+  // Fall back to simulation only when no live driver is broadcasting
+  const simulatedDriver = useDriverSimulation(stops);
+  const driver = liveDriverPos ?? simulatedDriver;
+
+  // Track whether we've already sent the boarding notification (dedupe per trip)
+  const boardingNotifiedRef = useRef(false);
+
+  // Subscribe to the selected trip's driver positions
+  useEffect(() => {
+    if (!tripDetail?.id) return;
+    setLiveDriverPos(null);
+    boardingNotifiedRef.current = false;
+    const unsub = subscribe(
+      tripDetail.id,
+      (pos) => setLiveDriverPos(pos),
+      () => setLiveDriverPos(null),
+    );
+    return unsub;
+  }, [tripDetail?.id, subscribe]);
+
+  // Proximity check: when student is within 200m of driver, notify parent
+  useEffect(() => {
+    if (!geo.point || !driver || !tripDetail?.id || !user) return;
+    const dist = distanceMeters(geo.point.lat, geo.point.lng, driver.lat, driver.lng);
+    if (dist <= BOARDING_THRESHOLD_M && !boardingNotifiedRef.current) {
+      boardingNotifiedRef.current = true;
+      apiClient.notifications
+        .notifyBoarding({
+          tripId: tripDetail.id,
+          studentId: user.id,
+          distanceMeters: dist,
+          driverLat: driver.lat,
+          driverLng: driver.lng,
+          studentLat: geo.point.lat,
+          studentLng: geo.point.lng,
+        })
+        .then((res) => {
+          if (res.ok && !res.alreadyNotified) {
+            toast.success("Boarding detected!", {
+              description: `You're ${Math.round(dist)}m from the bus. Your parent has been notified you're aboard.`,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [geo.point, driver, tripDetail?.id, user]);
+
   const tripList = useQuery({
     queryKey: ["trips", "live"],
-    queryFn: () =>
-      apiClient.trips.search({ page: 1, pageSize: 10 }),
+    queryFn: () => apiClient.trips.search({ page: 1, pageSize: 10 }),
     enabled: !!user && trips === undefined,
   });
 
@@ -142,9 +194,20 @@ export function RealMapView({
           >
             {userPosition ? "You are here" : "Locating…"}
           </StatusPill>
-          <StatusPill tone="accent" dot>
-            Bus (simulated)
-          </StatusPill>
+          {liveDriverPos ? (
+            <StatusPill tone="success" dot pulse>
+              <Radio className="mr-1 inline size-3" /> Bus live
+            </StatusPill>
+          ) : (
+            <StatusPill tone="accent" dot>
+              Bus (simulated)
+            </StatusPill>
+          )}
+          {connected && (
+            <StatusPill tone="primary" dot>
+              <Radio className="mr-1 inline size-3" /> Connected
+            </StatusPill>
+          )}
         </div>
         {/* live coordinates */}
         {userPosition && (

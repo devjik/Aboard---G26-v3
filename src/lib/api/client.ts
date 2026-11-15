@@ -231,6 +231,18 @@ export interface AdminRoute {
   tripCount: number;
 }
 
+export interface NotificationItem {
+  id: string;
+  channel: string;
+  type: string;
+  title: string;
+  body: string;
+  payload: unknown;
+  status: string;
+  createdAt: string;
+  readAt: string | null;
+}
+
 export interface PaymentInitiateResponse {
   paymentId: string;
   providerRef: string;
@@ -322,17 +334,7 @@ export const apiClient = {
   notifications: {
     list: (q?: { page?: number; pageSize?: number }) =>
       api.get<{
-        items: {
-          id: string;
-          channel: string;
-          type: string;
-          title: string;
-          body: string;
-          payload: unknown;
-          status: string;
-          createdAt: string;
-          readAt: string | null;
-        }[];
+        items: NotificationItem[];
         unreadCount: number;
         total: number;
         page: number;
@@ -340,5 +342,14 @@ export const apiClient = {
       }>("/api/v1/notifications", q),
     markRead: (id: string) =>
       api.post<{ id: string; status: string; readAt: string | null }>(`/api/v1/notifications/${id}/read`),
+    notifyBoarding: (body: {
+      tripId: string;
+      studentId: string;
+      distanceMeters: number;
+      driverLat: number;
+      driverLng: number;
+      studentLat: number;
+      studentLng: number;
+    }) => api.post<{ ok: boolean; parentsNotified: number; alreadyNotified?: boolean }>("/api/v1/notifications/boarding", body),
   },
 };
