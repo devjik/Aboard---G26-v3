@@ -186,7 +186,7 @@ export function RealMapView({
           routeLine={stops}
         />
         {/* status pills */}
-        <div className="absolute left-3 top-3 z-[500] flex flex-wrap items-center gap-2">
+        <div className="absolute left-3 top-3 z-30 flex flex-wrap items-center gap-2">
           <StatusPill
             tone={userPosition ? "success" : "neutral"}
             dot
@@ -211,7 +211,7 @@ export function RealMapView({
         </div>
         {/* live coordinates */}
         {userPosition && (
-          <div className="absolute bottom-3 left-3 z-[500] rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground shadow-card backdrop-blur">
+          <div className="absolute bottom-3 left-3 z-30 rounded-lg border border-border bg-card/90 px-2.5 py-1.5 text-[10px] font-mono text-muted-foreground shadow-card backdrop-blur">
             {userPosition.lat.toFixed(4)}, {userPosition.lng.toFixed(4)}
             {typeof userPosition.accuracy === "number" && (
               <span className="ml-1">±{Math.round(userPosition.accuracy)}m</span>

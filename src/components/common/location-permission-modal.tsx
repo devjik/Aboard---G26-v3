@@ -88,14 +88,14 @@ export function LocationPermissionModal({ open, onClose, onGranted }: LocationPe
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={handleClose}
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm"
           />
           <motion.div
             initial={{ opacity: 0, y: 24, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.97 }}
             transition={{ type: "spring", stiffness: 300, damping: 28 }}
-            className="fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-md rounded-t-3xl border border-border bg-card p-6 shadow-card sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl"
+            className="fixed inset-x-0 bottom-0 z-[100] mx-auto w-full max-w-md rounded-t-3xl border border-border bg-card p-6 shadow-card sm:inset-x-auto sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-3xl"
           >
             {/* close */}
             <button onClick={handleClose} className="absolute right-4 top-4 text-muted-foreground transition-colors hover:text-foreground" aria-label="Close">

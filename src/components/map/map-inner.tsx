@@ -18,7 +18,21 @@ const DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-const KEYFRAMES = `@keyframes aboard-ping { 0% { transform: scale(0.6); opacity: 0.85; } 80%, 100% { transform: scale(2.4); opacity: 0; } }`;
+const KEYFRAMES = `@keyframes aboard-ping { 0% { transform: scale(0.6); opacity: 0.85; } 80%, 100% { transform: scale(2.4); opacity: 0; } }
+/* Lower Leaflet's z-index panes so modals/bottom-sheets (z-50+) sit on top.
+   Leaflet defaults to 200-700; we clamp everything to 0-40 so the booking
+   sheet and other overlays always render above the map. */
+.leaflet-pane { z-index: 0 !important; }
+.leaflet-tile-pane { z-index: 0 !important; }
+.leaflet-overlay-pane { z-index: 1 !important; }
+.leaflet-shadow-pane { z-index: 1 !important; }
+.leaflet-marker-pane { z-index: 10 !important; }
+.leaflet-tooltip-pane { z-index: 10 !important; }
+.leaflet-popup-pane { z-index: 20 !important; }
+.leaflet-map-pane { z-index: 0 !important; }
+.leaflet-control { z-index: 10 !important; }
+.leaflet-top, .leaflet-bottom { z-index: 10 !important; }
+`;
 
 function divIcon(html: string, className: string, size = 24): L.DivIcon {
   return L.divIcon({
