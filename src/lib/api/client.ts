@@ -330,6 +330,51 @@ export const apiClient = {
       payerRole: string;
       idempotencyKey: string;
     }) => api.post<PaymentInitiateResponse>("/api/v1/payments/initiate", body),
+    confirm: (paymentId: string) =>
+      api.post<{
+        ok: boolean;
+        paymentStatus: string;
+        bookingStatus: string;
+        ticketId: string;
+        ticketToken: string;
+        ref: string;
+        route: string;
+        seat: string;
+        departureAt: string;
+        studentName: string;
+        alreadyConfirmed?: boolean;
+      }>(`/api/v1/payments/${paymentId}/confirm`),
+  },
+  tickets: {
+    get: (bookingId: string) =>
+      api.get<{
+        ticketId: string;
+        status: string;
+        version: number;
+        issuedAt: string;
+        token: string;
+        qr: string;
+        ref: string;
+        payload: {
+          bookingId: string;
+          tripId: string;
+          seatLabel: string;
+          studentId: string;
+          studentName: string;
+          route: string;
+          departureAt: string;
+          expiry: string;
+          version: number;
+        };
+        route: string;
+        seatLabel: string;
+        studentName: string;
+        departureAt: string;
+        departureFormatted: string;
+        operatorName: string;
+        paymentStatus: string;
+        approved: boolean;
+      }>(`/api/v1/tickets/${bookingId}`),
   },
   notifications: {
     list: (q?: { page?: number; pageSize?: number }) =>
