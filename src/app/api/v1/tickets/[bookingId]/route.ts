@@ -102,10 +102,13 @@ export async function GET(
     `ABOARD_VERIFY:${ticket.payloadSigned}`,
   ].join("\n");
 
-  // Generate QR code as a data URL
+  // Generate QR code as a data URL — high error correction (H) so it
+  // still scans even if partially damaged/dirty/angled. Larger size
+  // + more margin for reliable scanning from phone cameras.
   const qrDataUrl = await QRCode.toDataURL(qrPayload, {
-    width: 320,
-    margin: 1,
+    width: 512,
+    margin: 2,
+    errorCorrectionLevel: "H",
     color: { dark: "#0a0a0a", light: "#ffffff" },
   });
 
