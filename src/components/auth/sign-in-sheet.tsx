@@ -16,12 +16,11 @@ import { cn } from "@/lib/utils";
 
 type Mode = "password" | "otp" | "gmail";
 type OtpStage = "request" | "verify";
-type RoleChoice = "STUDENT" | "DRIVER" | "PARENT" | "ADMIN";
+type RoleChoice = "STUDENT" | "DRIVER" | "ADMIN";
 
 const ROLES: Array<{ id: RoleChoice; label: string; icon: React.ReactNode; desc: string }> = [
   { id: "STUDENT", label: "Student", icon: <GraduationCap className="size-5" />, desc: "Book trips & track" },
   { id: "DRIVER", label: "Driver", icon: <Bus className="size-5" />, desc: "Broadcast bus GPS" },
-  { id: "PARENT", label: "Guardian", icon: <User className="size-5" />, desc: "Follow your ward" },
   { id: "ADMIN", label: "Admin", icon: <UserCog className="size-5" />, desc: "Manage everything" },
 ];
 
