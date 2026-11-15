@@ -72,15 +72,16 @@ const ALL_NAV: Array<{ id: ViewKey; label: string; icon: React.ReactNode; roles?
   { id: "explore", label: "Explore", icon: <Search className="h-4 w-4" />, roles: ["STUDENT", "ADMIN"] },
   { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" />, roles: ["STUDENT", "DRIVER", "ADMIN"] },
   { id: "drive", label: "Drive", icon: <Bus className="h-4 w-4" />, roles: ["DRIVER", "ADMIN"] },
-  { id: "guardian", label: "Guardian", icon: <User className="h-4 w-4" />, roles: ["PARENT", "ADMIN"] },
+  // Guardian is passwordless — anyone can access it (no roles filter = always visible)
+  { id: "guardian", label: "Guardian", icon: <User className="h-4 w-4" /> },
   { id: "admin", label: "Admin", icon: <LayoutGrid className="h-4 w-4" />, roles: ["ADMIN"] },
 ];
 
 /** Returns the nav items the given role is allowed to see. */
 function navForRole(role?: string) {
   if (!role) {
-    // signed-out users only see Home (Explore/Map prompt sign-in)
-    return ALL_NAV.filter((n) => n.id === "home");
+    // signed-out users see Home + Guardian (Guardian is passwordless)
+    return ALL_NAV.filter((n) => n.id === "home" || n.id === "guardian");
   }
   return ALL_NAV.filter((n) => !n.roles || n.roles.includes(role));
 }
@@ -280,21 +281,7 @@ export default function Home() {
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.25 }}
             >
-              {user ? (
-                <GuardianView user={user} />
-              ) : (
-                <div className="mx-auto max-w-md px-4 py-16">
-                  <EmptyState
-                    title="Sign in as a guardian"
-                    description="Guardians sign in to track their ward's trip with the student's consent."
-                    action={
-                      <Button onClick={() => setSignInOpen(true)} className="bg-grad-primary text-white">
-                        Sign in
-                      </Button>
-                    }
-                  />
-                </div>
-              )}
+              <GuardianView />
             </motion.div>
           )}
           {view === "admin" && (

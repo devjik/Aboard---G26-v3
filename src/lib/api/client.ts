@@ -377,7 +377,7 @@ export const apiClient = {
       }>(`/api/v1/tickets/${bookingId}`),
   },
   consent: {
-    request: (body: { studentName: string; ref: string; seat: string }) =>
+    request: (body: { studentName: string; ref: string; seat: string; guardianName?: string }) =>
       api.post<{
         ok: boolean;
         consentId: string;

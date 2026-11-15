@@ -24,25 +24,26 @@ const MapInner = dynamic(() => import("@/components/map/map-inner").then((m) => 
 type Stage = "form" | "awaiting-code" | "enter-code" | "tracking";
 
 interface GuardianViewProps {
-  user: { id: string; name: string; role: string };
+  user?: { id: string; name: string; role: string } | null;
 }
 
 /**
- * Guardian view — minimal. Just a map and a form to enter the student's
- * name, booking reference, and seat. On submit, the student gets a consent
- * code notification. The guardian enters the code (shared personally by the
- * student) to unlock the student's live location + bus on the map.
+ * Guardian view — passwordless. The guardian doesn't need an account.
+ * They enter the student's details, the student gets a consent code,
+ * the guardian enters it, and the map shows the student + bus.
+ * The consent code IS the guardian's "auth".
  */
-export function GuardianView({ user }: GuardianViewProps) {
+export function GuardianView(_props: GuardianViewProps) {
   const [stage, setStage] = useState<Stage>("form");
   const [studentName, setStudentName] = useState("");
+  const [guardianName, setGuardianName] = useState("");
   const [ref, setRef] = useState("");
   const [seat, setSeat] = useState("");
   const [code, setCode] = useState("");
   const [trackData, setTrackData] = useState<{ tripId: string; route: string; studentName: string } | null>(null);
 
   const requestMut = useMutation({
-    mutationFn: () => apiClient.consent.request({ studentName, ref, seat }),
+    mutationFn: () => apiClient.consent.request({ studentName, ref, seat, guardianName }),
     onSuccess: (data) => {
       toast.success("Consent request sent", {
         description: data.message,
@@ -73,7 +74,7 @@ export function GuardianView({ user }: GuardianViewProps) {
       <div className="mb-6">
         <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Guardian</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Track your ward's trip with their consent. Enter their details, they'll share a code with you.
+          No account needed. Enter your ward's details, they'll share a code with you. Enter it to see their live location and the bus.
         </p>
       </div>
 
@@ -91,6 +92,19 @@ export function GuardianView({ user }: GuardianViewProps) {
                 <User className="size-4 text-primary" /> Enter your ward's details
               </h3>
               <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="g-guardian">Your name (guardian)</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="g-guardian"
+                      placeholder="e.g. Mrs. Mensah"
+                      value={guardianName}
+                      onChange={(e) => setGuardianName(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="g-name">Student name</Label>
                   <div className="relative">

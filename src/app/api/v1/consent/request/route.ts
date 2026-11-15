@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { okResponse, errorResponse, ERRORS } from "@/lib/api/envelope";
-import { requireAuth, getCorrelationId } from "@/lib/auth/guard";
+import { getCorrelationId } from "@/lib/auth/guard";
 import { createConsent } from "@/lib/consent/store";
 import { activeNotificationProvider } from "@/lib/notifications/provider";
 
@@ -10,25 +10,23 @@ export const dynamic = "force-dynamic";
 
 const RequestBody = z.object({
   studentName: z.string().min(2, "Student name is required"),
-  ref: z.string().min(4, "Booking reference is required"),
+  ref: z.string().min(1, "Booking reference is required"),
   seat: z.string().min(1, "Seat is required"),
+  guardianName: z.string().min(2, "Your name is required").optional(),
 });
 
 /**
  * POST /api/v1/consent/request
  *
- * Guardian submits the student's name + booking reference + seat.
- * The server finds the matching booking, generates a 6-digit consent code,
- * and sends a notification to the student: "Your guardian X wants to track
- * your trip. Share this code with them: 482910".
+ * Guardian (not signed in — no account needed) submits the student's name +
+ * booking reference + seat. The server finds the matching booking, generates
+ * a 6-digit consent code, and sends a notification to the student:
+ * "Your guardian wants to track your trip. Share this code with them: 482910".
  *
- * The student then shares the code with the guardian personally (in person,
- * by phone, etc.) as a form of consent.
+ * The consent code IS the guardian's "auth" — no password required.
  */
 export async function POST(req: NextRequest) {
   const corr = getCorrelationId(req);
-  const r = await requireAuth();
-  if (!r.ok) return r.response;
 
   let body: unknown;
   try {
@@ -48,7 +46,7 @@ export async function POST(req: NextRequest) {
     }).response;
   }
 
-  const { studentName, ref, seat } = parsed.data;
+  const { studentName, ref, seat, guardianName } = parsed.data;
 
   // Find the booking by matching student name + seat label.
   // The ref is informational (we match on name + seat for the pilot).
@@ -78,10 +76,11 @@ export async function POST(req: NextRequest) {
     }).response;
   }
 
-  // Generate the consent code
+  // Generate the consent code — the guardian doesn't have an account,
+  // so we use a session-less identifier. The consent code IS their auth.
   const { code, consentId } = createConsent({
-    guardianId: r.ctx.userId,
-    guardianName: "Your guardian",
+    guardianId: `anon_${Date.now()}`,
+    guardianName: guardianName || "Your guardian",
     studentId: booking.studentId,
     studentName: booking.student?.user?.name ?? "Student",
     tripId: booking.tripId,
@@ -96,12 +95,12 @@ export async function POST(req: NextRequest) {
     channel: "IN_APP",
     type: "PARENT_LINK_REQUEST",
     title: "Guardian wants to track your trip",
-    body: `Your guardian wants to follow your trip on ${routeLabel} (seat ${seat}). Share this code with them personally to give consent: ${code}`,
+    body: `${guardianName || "Your guardian"} wants to follow your trip on ${routeLabel} (seat ${seat}). Share this code with them personally to give consent: ${code}`,
     payload: {
       kind: "CONSENT_REQUEST",
       consentId,
       code,
-      guardianId: r.ctx.userId,
+      guardianId: `anon_${Date.now()}`,
       route: routeLabel,
       seat,
       ts: Date.now(),

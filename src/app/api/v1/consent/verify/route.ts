@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { okResponse, errorResponse, ERRORS } from "@/lib/api/envelope";
-import { requireAuth, getCorrelationId } from "@/lib/auth/guard";
+import { getCorrelationId } from "@/lib/auth/guard";
 import { verifyConsentCode } from "@/lib/consent/store";
 import { activeNotificationProvider } from "@/lib/notifications/provider";
 
@@ -17,13 +17,11 @@ const VerifyBody = z.object({
  * POST /api/v1/consent/verify
  *
  * Guardian enters the 6-digit consent code that the student shared with
- * them personally. If correct, consent is granted and the guardian can
- * now see the student's location + the bus on the map.
+ * them personally. No auth required — the code IS the auth. If correct,
+ * consent is granted and the guardian can see the student + bus on the map.
  */
 export async function POST(req: NextRequest) {
   const corr = getCorrelationId(req);
-  const r = await requireAuth();
-  if (!r.ok) return r.response;
 
   let body: unknown;
   try {
@@ -79,7 +77,7 @@ export async function POST(req: NextRequest) {
     body: `Your guardian has entered the consent code. They can now see your location and the bus on their map for this trip.`,
     payload: {
       kind: "CONSENT_GRANTED",
-      guardianId: r.ctx.userId,
+      guardianId: consent.guardianId,
       tripId: consent.tripId,
       ts: Date.now(),
     },
