@@ -376,6 +376,26 @@ export const apiClient = {
         approved: boolean;
       }>(`/api/v1/tickets/${bookingId}`),
   },
+  consent: {
+    request: (body: { studentName: string; ref: string; seat: string }) =>
+      api.post<{
+        ok: boolean;
+        consentId: string;
+        message: string;
+        studentName?: string;
+        route?: string;
+        seat?: string;
+      }>("/api/v1/consent/request", body),
+    verify: (body: { studentName: string; code: string }) =>
+      api.post<{
+        ok: boolean;
+        granted: boolean;
+        tripId: string;
+        route: string;
+        studentName: string;
+        message: string;
+      }>("/api/v1/consent/verify", body),
+  },
   notifications: {
     list: (q?: { page?: number; pageSize?: number }) =>
       api.get<{

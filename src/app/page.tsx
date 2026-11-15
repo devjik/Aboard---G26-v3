@@ -26,6 +26,7 @@ import {
   Sparkles,
   Ticket,
   Twitter,
+  User,
   Users,
   X,
 } from "lucide-react";
@@ -47,6 +48,7 @@ import type { TripCardData } from "@/components/trips/trip-card";
 import { BookingSheet } from "@/components/trips/booking-sheet";
 import { AdminPanel } from "@/components/admin/admin-panel";
 import { DriverMode } from "@/components/driver/driver-mode";
+import { GuardianView } from "@/components/guardian/guardian-view";
 import { EmptyState } from "@/components/common/empty-state";
 import { RealMapView } from "@/components/map/real-map-view";
 import { SignInSheet } from "@/components/auth/sign-in-sheet";
@@ -63,13 +65,14 @@ import { apiClient } from "@/lib/api/client";
 import { GHANA_REGIONS, ROUTE_SEEDS } from "@/lib/config/ghana";
 void GHANA_REGIONS;
 
-type ViewKey = "home" | "explore" | "map" | "admin" | "drive";
+type ViewKey = "home" | "explore" | "map" | "admin" | "drive" | "guardian";
 
 const ALL_NAV: Array<{ id: ViewKey; label: string; icon: React.ReactNode; roles?: string[] }> = [
   { id: "home", label: "Home", icon: <Sparkles className="h-4 w-4" /> },
-  { id: "explore", label: "Explore", icon: <Search className="h-4 w-4" />, roles: ["STUDENT", "PARENT", "ADMIN", "DRIVER"] },
-  { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" />, roles: ["STUDENT", "PARENT", "ADMIN", "DRIVER"] },
+  { id: "explore", label: "Explore", icon: <Search className="h-4 w-4" />, roles: ["STUDENT", "ADMIN"] },
+  { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" />, roles: ["STUDENT", "DRIVER", "ADMIN"] },
   { id: "drive", label: "Drive", icon: <Bus className="h-4 w-4" />, roles: ["DRIVER", "ADMIN"] },
+  { id: "guardian", label: "Guardian", icon: <User className="h-4 w-4" />, roles: ["PARENT", "ADMIN"] },
   { id: "admin", label: "Admin", icon: <LayoutGrid className="h-4 w-4" />, roles: ["ADMIN"] },
 ];
 
@@ -259,6 +262,31 @@ export default function Home() {
                   <EmptyState
                     title="Sign in to drive"
                     description="Drivers sign in to broadcast their live GPS as the bus position for students."
+                    action={
+                      <Button onClick={() => setSignInOpen(true)} className="bg-grad-primary text-white">
+                        Sign in
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
+            </motion.div>
+          )}
+          {view === "guardian" && (
+            <motion.div
+              key="guardian"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+            >
+              {user ? (
+                <GuardianView user={user} />
+              ) : (
+                <div className="mx-auto max-w-md px-4 py-16">
+                  <EmptyState
+                    title="Sign in as a guardian"
+                    description="Guardians sign in to track their ward's trip with the student's consent."
                     action={
                       <Button onClick={() => setSignInOpen(true)} className="bg-grad-primary text-white">
                         Sign in
