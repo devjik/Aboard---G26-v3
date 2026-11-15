@@ -72,16 +72,38 @@ export async function GET(
     }).response;
   }
 
+  const booking = ticket.booking;
+  const route = `${booking.trip.route.originName} → ${booking.trip.route.destName}`;
+  const payment = booking.payments[0];
+  const ref = `AB-${new Date(ticket.issuedAt).getFullYear()}-${ticket.id.slice(-6).toUpperCase()}`;
+
+  // Build a human-readable QR payload that works offline:
+  // - Any phone camera scanner shows the ticket details (not raw base64)
+  // - The driver app parses + verifies the signature offline
+  const qrPayload = JSON.stringify({
+    app: "aboard",
+    type: "ticket",
+    ref,
+    name: booking.student?.user?.name ?? "Passenger",
+    route,
+    seat: booking.seat?.label ?? "—",
+    dep: booking.trip.departureAt.toLocaleString("en-GH", {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }),
+    token: ticket.payloadSigned,
+  });
+
   // Generate QR code as a data URL
-  const qrDataUrl = await QRCode.toDataURL(ticket.payloadSigned, {
+  const qrDataUrl = await QRCode.toDataURL(qrPayload, {
     width: 256,
     margin: 1,
     color: { dark: "#0a0a0a", light: "#ffffff" },
   });
-
-  const booking = ticket.booking;
-  const route = `${booking.trip.route.originName} → ${booking.trip.route.destName}`;
-  const payment = booking.payments[0];
 
   return okResponse(
     {
@@ -91,7 +113,7 @@ export async function GET(
       issuedAt: ticket.issuedAt.toISOString(),
       token: ticket.payloadSigned,
       qr: qrDataUrl,
-      ref: `AB-${new Date(ticket.issuedAt).getFullYear()}-${ticket.id.slice(-6).toUpperCase()}`,
+      ref,
       payload,
       route,
       seatLabel: booking.seat?.label ?? "—",
