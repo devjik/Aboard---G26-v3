@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -65,13 +65,22 @@ void GHANA_REGIONS;
 
 type ViewKey = "home" | "explore" | "map" | "admin" | "drive";
 
-const NAV: Array<{ id: ViewKey; label: string; icon: React.ReactNode }> = [
+const ALL_NAV: Array<{ id: ViewKey; label: string; icon: React.ReactNode; roles?: string[] }> = [
   { id: "home", label: "Home", icon: <Sparkles className="h-4 w-4" /> },
-  { id: "explore", label: "Explore", icon: <Search className="h-4 w-4" /> },
-  { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" /> },
-  { id: "drive", label: "Drive", icon: <Bus className="h-4 w-4" /> },
-  { id: "admin", label: "Admin", icon: <LayoutGrid className="h-4 w-4" /> },
+  { id: "explore", label: "Explore", icon: <Search className="h-4 w-4" />, roles: ["STUDENT", "PARENT", "ADMIN", "DRIVER"] },
+  { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" />, roles: ["STUDENT", "PARENT", "ADMIN", "DRIVER"] },
+  { id: "drive", label: "Drive", icon: <Bus className="h-4 w-4" />, roles: ["DRIVER", "ADMIN"] },
+  { id: "admin", label: "Admin", icon: <LayoutGrid className="h-4 w-4" />, roles: ["ADMIN"] },
 ];
+
+/** Returns the nav items the given role is allowed to see. */
+function navForRole(role?: string) {
+  if (!role) {
+    // signed-out users only see Home (Explore/Map prompt sign-in)
+    return ALL_NAV.filter((n) => n.id === "home");
+  }
+  return ALL_NAV.filter((n) => !n.roles || n.roles.includes(role));
+}
 
 const FEATURE_LINKS: Array<{ id: FooterPage; label: string }> = [
   { id: "find-a-trip", label: "Find a trip" },
@@ -112,6 +121,16 @@ export default function Home() {
   const [mobileNav, setMobileNav] = useState(false);
   const queryClient = useQueryClient();
   const [locationPromptOpen, setLocationPromptOpen] = useState(false);
+
+  // Guard: if the user's role doesn't allow the current view, fall back to home.
+  // E.g. a student can't be on "admin" or "drive"; a signed-out user can't be
+  // on "explore" or "map" (those prompt sign-in, but we keep the nav clean).
+  useEffect(() => {
+    const allowed = navForRole(user?.role);
+    if (!allowed.some((n) => n.id === view)) {
+      setView("home");
+    }
+  }, [user?.role, view]);
 
   const tripsQ = useQuery({
     queryKey: ["trips", "page-feed"],
@@ -327,6 +346,7 @@ function Header({
   mobileNavOpen: boolean;
   onToggleMobile: () => void;
 }) {
+  const nav = navForRole(user?.role);
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-3 px-4">
@@ -340,7 +360,7 @@ function Header({
 
         <nav className="hidden md:block">
           <div className="relative inline-flex rounded-full border border-border bg-card p-1">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <button
                 key={n.id}
                 onClick={() => setView(n.id)}
@@ -414,7 +434,7 @@ function Header({
       {mobileNavOpen && (
         <div className="border-t border-border px-4 py-3 md:hidden">
           <div className="grid gap-1">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <button
                 key={n.id}
                 onClick={() => setView(n.id)}
