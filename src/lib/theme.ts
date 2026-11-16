@@ -3,7 +3,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
-export type ColorTheme = "emerald" | "sunset" | "midnight";
+/**
+ * Aboard theme system — Sand Cream + Charcoal + Tan Editorial.
+ *
+ * One color identity (warm paper + tan accent), two modes (light/dark).
+ * The light mode is the signature; dark mode is the polished alternative.
+ */
+export type ColorTheme = "editorial"; // single identity; kept as type for future expansion
 export type Mode = "light" | "dark";
 
 export interface ThemeState {
@@ -17,7 +23,7 @@ export interface ThemeState {
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
-      color: "emerald",
+      color: "editorial",
       mode: "light",
       setColor: (color) => set({ color }),
       setMode: (mode) => set({ mode }),
@@ -38,22 +44,10 @@ export const COLOR_THEMES: Array<{
   swatches: string[];
 }> = [
   {
-    id: "emerald",
-    label: "Emerald",
-    description: "Default — Ghana green",
-    swatches: ["#047857", "#10b981", "#f59e0b"],
-  },
-  {
-    id: "sunset",
-    label: "Sunset",
-    description: "Warm savanna sunsets",
-    swatches: ["#ea580c", "#f59e0b", "#10b981"],
-  },
-  {
-    id: "midnight",
-    label: "Midnight",
-    description: "Dark-first, cool teal",
-    swatches: ["#14b8a6", "#0f766e", "#fbbf24"],
+    id: "editorial",
+    label: "Editorial",
+    description: "Sand cream + charcoal + tan",
+    swatches: ["#FBF6EC", "#1E1A14", "#B8895A"],
   },
 ];
 
@@ -68,4 +62,4 @@ export function applyTheme(color: ColorTheme, mode: Mode): void {
   }
 }
 
-export const themeNoFlashScript = `(function(){try{var s=localStorage.getItem('aboard-theme');if(!s){document.documentElement.setAttribute('data-theme','emerald');return;}var p=JSON.parse(s);var c=(p&&p.state&&p.state.color)||'emerald';var m=(p&&p.state&&p.state.mode)||'light';document.documentElement.setAttribute('data-theme',c);if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','emerald');}})();`;
+export const themeNoFlashScript = `(function(){try{var s=localStorage.getItem('aboard-theme');if(!s){document.documentElement.setAttribute('data-theme','editorial');return;}var p=JSON.parse(s);var c=(p&&p.state&&p.state.color)||'editorial';var m=(p&&p.state&&p.state.mode)||'light';document.documentElement.setAttribute('data-theme',c);if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','editorial');}})();`;

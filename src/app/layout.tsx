@@ -1,24 +1,29 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Sora } from "next/font/google";
+import { Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { CursorProvider } from "@/components/motion/cursor-provider";
 import { themeNoFlashScript } from "@/lib/theme";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/config/app";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrains = JetBrains_Mono({
+  variable: "--font-jetbrains",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const sora = Sora({
-  variable: "--font-sora",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -32,22 +37,36 @@ export const metadata: Metadata = {
     "student travel",
     "Cape Coast",
     "inter-city",
+    "live tracking",
+    "QR ticket",
   ],
   authors: [{ name: APP_NAME }],
+  manifest: "/manifest.webmanifest",
   icons: {
     icon: "/logo.svg",
+    apple: "/logo.svg",
   },
   openGraph: {
-    title: APP_NAME,
+    title: `${APP_NAME} — Get on board. Know you arrived.`,
     description: APP_DESCRIPTION,
     type: "website",
+    siteName: APP_NAME,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a0a0a",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#FBF6EC" },
+    { media: "(prefers-color-scheme: dark)", color: "#1A1612" },
+  ],
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -63,9 +82,11 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${sora.variable} antialiased bg-background text-foreground`}
+        className={`${inter.variable} ${jetbrains.variable} ${fraunces.variable} antialiased bg-background text-foreground`}
       >
-        <Providers>{children}</Providers>
+        <CursorProvider>
+          <Providers>{children}</Providers>
+        </CursorProvider>
       </body>
     </html>
   );

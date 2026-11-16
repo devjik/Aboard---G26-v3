@@ -1,0 +1,39 @@
+{
+  "name": "Aboard — Student Bus Booking & Live Tracking",
+  "short_name": "Aboard",
+  "description": "Inter-city student bus booking & live tracking for Ghana. Pilot: University of Cape Coast.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF6EC",
+  "theme_color": "#B8895A",
+  "orientation": "portrait-primary",
+  "categories": ["travel", "education", "navigation"],
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Find a trip",
+      "short_name": "Trips",
+      "url": "/?view=explore",
+      "description": "Search trips across Ghana"
+    },
+    {
+      "name": "Live map",
+      "short_name": "Map",
+      "url": "/?view=map",
+      "description": "See live bus positions"
+    },
+    {
+      "name": "My ticket",
+      "short_name": "Ticket",
+      "url": "/?view=ticket",
+      "description": "Show your QR boarding pass"
+    }
+  ]
+}

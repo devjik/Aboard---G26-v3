@@ -38,6 +38,10 @@ import { LogoLockup } from "@/components/brand/logo";
 import { ThemeSwitcher } from "@/components/brand/theme-switcher";
 import { MagneticWrap } from "@/components/motion/magnetic-wrap";
 import { TiltCard } from "@/components/motion/tilt-card";
+import { Reveal, RevealStagger, RevealItem } from "@/components/motion/reveal";
+import { ParallaxSection, ParallaxImage } from "@/components/motion/parallax";
+import { MeshGradient } from "@/components/motion/mesh-gradient";
+import { BentoGrid, BentoCell } from "@/components/motion/bento-grid";
 import { GradientText } from "@/components/common/gradient-text";
 import { InteractiveJourneySteps } from "@/components/common/interactive-journey-steps";
 import { FooterLinkSheet, type FooterPage } from "@/components/common/footer-link-sheet";
@@ -47,6 +51,7 @@ import { TripsExplorer } from "@/components/trips/trips-explorer";
 import type { TripCardData } from "@/components/trips/trip-card";
 import { BookingSheet } from "@/components/trips/booking-sheet";
 import { AdminPanel } from "@/components/admin/admin-panel";
+import { OperatorDashboard } from "@/components/operator/operator-dashboard";
 import { DriverMode } from "@/components/driver/driver-mode";
 import { GuardianView } from "@/components/guardian/guardian-view";
 import { EmptyState } from "@/components/common/empty-state";
@@ -65,13 +70,14 @@ import { apiClient } from "@/lib/api/client";
 import { GHANA_REGIONS, ROUTE_SEEDS } from "@/lib/config/ghana";
 void GHANA_REGIONS;
 
-type ViewKey = "home" | "explore" | "map" | "admin" | "drive" | "guardian";
+type ViewKey = "home" | "explore" | "map" | "admin" | "operator" | "drive" | "guardian";
 
 const ALL_NAV: Array<{ id: ViewKey; label: string; icon: React.ReactNode; roles?: string[] }> = [
   { id: "home", label: "Home", icon: <Sparkles className="h-4 w-4" /> },
   { id: "explore", label: "Explore", icon: <Search className="h-4 w-4" />, roles: ["STUDENT", "ADMIN"] },
-  { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" />, roles: ["STUDENT", "DRIVER", "ADMIN"] },
+  { id: "map", label: "Live Map", icon: <MapIcon className="h-4 w-4" />, roles: ["STUDENT", "DRIVER", "ADMIN", "PARENT"] },
   { id: "drive", label: "Drive", icon: <Bus className="h-4 w-4" />, roles: ["DRIVER", "ADMIN"] },
+  { id: "operator", label: "Operator", icon: <RouteIcon className="h-4 w-4" />, roles: ["OPERATOR", "ADMIN"] },
   // Guardian is passwordless — anyone can access it (no roles filter = always visible)
   { id: "guardian", label: "Guardian", icon: <User className="h-4 w-4" /> },
   { id: "admin", label: "Admin", icon: <LayoutGrid className="h-4 w-4" />, roles: ["ADMIN"] },
@@ -208,9 +214,11 @@ export default function Home() {
                 loading={tripsQ.isLoading}
               />
               <HowItWorks />
-              <Features />
+              <FeaturesBento />
               <Roles />
-              <ThemeShowcase />
+              <RoutesShowcase />
+              <FAQSection />
+              <CTASection onExplore={() => setView("explore")} />
             </motion.div>
           )}
           {view === "explore" && (
@@ -288,6 +296,32 @@ export default function Home() {
               transition={{ duration: 0.25 }}
             >
               <GuardianView />
+            </motion.div>
+          )}
+          {view === "operator" && (
+            <motion.div
+              key="operator"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className="mx-auto w-full max-w-6xl px-4 py-10"
+            >
+              {user ? (
+                <OperatorDashboard user={user} />
+              ) : (
+                <div className="mx-auto max-w-md px-4 py-16">
+                  <EmptyState
+                    title="Sign in as operator"
+                    description="Operators manage buses, drivers, routes, schedules, and payouts."
+                    action={
+                      <Button onClick={() => setSignInOpen(true)} className="bg-grad-primary text-white">
+                        Sign in
+                      </Button>
+                    }
+                  />
+                </div>
+              )}
             </motion.div>
           )}
           {view === "admin" && (
@@ -492,73 +526,115 @@ function Hero({
   const [origin, setOrigin] = useState("Cape Coast");
   const [dest, setDest] = useState("Accra");
   return (
-    <section className="relative overflow-hidden">
-      <div className="absolute inset-0 -z-10 bg-grad-hero opacity-10" />
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-4 py-16 lg:grid-cols-2 lg:py-24">
-        <div className="flex flex-col justify-center gap-6">
-          <span className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-            <Rocket className="h-3 w-3" />
-            Now piloting at {PILOT_CAMPUS}
-          </span>
-          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight sm:text-5xl lg:text-6xl">
-            Get on board.
-            <br />
-            <GradientText variant="primary">Know you arrived.</GradientText>
-          </h1>
-          <p className="max-w-md text-base text-muted-foreground">
-            {APP_DESCRIPTION} Book a seat in seconds, watch your bus roll in,
-            and arrive safe — every trip, every time.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <MagneticWrap>
-              <Button
-                onClick={onExplore}
-                size="lg"
-                className="rounded-full bg-grad-primary"
-              >
-                <Search className="mr-1 h-4 w-4" />
-                Find a trip
-              </Button>
-            </MagneticWrap>
-            <MagneticWrap strength={0.3}>
-              <Button
-                onClick={onOpenMap}
-                variant="outline"
-                size="lg"
-                className="rounded-full"
-              >
-                <MapIcon className="mr-1 h-4 w-4" />
-                Live map
-              </Button>
-            </MagneticWrap>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Bus className="h-3.5 w-3.5 text-primary" />
-              {tripsCount} live trips
+    <section
+      className="paper-grain relative overflow-hidden bg-grad-hero"
+      data-cursor-section="belt"
+    >
+      {/* Animated mesh-gradient blobs — warm, editorial */}
+      <MeshGradient variant="warm" className="opacity-90" />
+
+      {/* Subtle parallax layer — large faint word "BOARD" drifting */}
+      <ParallaxSection speed={0.08} className="pointer-events-none absolute inset-0 -z-0">
+        <div
+          aria-hidden
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 select-none font-display text-[28vw] font-light leading-none text-foreground/[0.025] sm:text-[22vw]"
+        >
+          aboard
+        </div>
+      </ParallaxSection>
+
+      <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-4 pb-24 pt-20 lg:grid-cols-[1.1fr_1fr] lg:py-28">
+        {/* Left column — editorial headline */}
+        <div className="flex flex-col justify-center gap-7">
+          <Reveal>
+            <span className="eyebrow flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-tan" />
+              {`Now piloting · ${PILOT_CAMPUS}`}
             </span>
-            <span>·</span>
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-              Verified students only
-            </span>
-            <span>·</span>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-3.5 w-3.5 text-primary" />
-              {PILOT_REGION} region
-            </span>
-          </div>
+          </Reveal>
+
+          <Reveal delay={0.05}>
+            <h1 className="font-display text-[clamp(2.75rem,7vw,5.5rem)] font-medium leading-[0.95] tracking-tight text-foreground">
+              Get on board.
+              <br />
+              <span className="italic font-light text-tan">Know</span>{" "}
+              <span className="italic font-light text-tan">you</span>
+              <br />
+              arrived.
+            </h1>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
+              {APP_DESCRIPTION} Book a seat in seconds, watch your bus roll in
+              on a live map, and arrive safe — every trip, every semester.
+            </p>
+          </Reveal>
+
+          <Reveal delay={0.15}>
+            <div className="flex flex-wrap items-center gap-3">
+              <MagneticWrap>
+                <Button
+                  onClick={onExplore}
+                  size="lg"
+                  className="rounded-full bg-grad-primary px-6 text-base font-medium shadow-card transition-shadow hover:shadow-glow"
+                >
+                  <Search className="mr-1.5 h-4 w-4" />
+                  Find a trip
+                </Button>
+              </MagneticWrap>
+              <MagneticWrap strength={0.3}>
+                <Button
+                  onClick={onOpenMap}
+                  variant="outline"
+                  size="lg"
+                  className="rounded-full px-6 text-base font-medium"
+                >
+                  <MapIcon className="mr-1.5 h-4 w-4" />
+                  Live map
+                </Button>
+              </MagneticWrap>
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.2}>
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <Bus className="h-3.5 w-3.5 text-tan" />
+                {tripsCount} live trips
+              </span>
+              <span className="h-1 w-1 rounded-full bg-border" />
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck className="h-3.5 w-3.5 text-tan" />
+                Verified students only
+              </span>
+              <span className="h-1 w-1 rounded-full bg-border" />
+              <span className="flex items-center gap-1.5">
+                <MapPin className="h-3.5 w-3.5 text-tan" />
+                {PILOT_REGION} region
+              </span>
+            </div>
+          </Reveal>
         </div>
 
+        {/* Right column — phone mockup with parallax reveal */}
         <div className="relative flex items-center justify-center">
-          <PhoneMockup
-            origin={origin}
-            setOrigin={setOrigin}
-            dest={dest}
-            setDest={setDest}
-            onExplore={onExplore}
-          />
+          <Reveal delay={0.25} y={40}>
+            <PhoneMockup
+              origin={origin}
+              setOrigin={setOrigin}
+              dest={dest}
+              setDest={setDest}
+              onExplore={onExplore}
+            />
+          </Reveal>
         </div>
+      </div>
+
+      {/* Scroll indicator */}
+      <div className="absolute bottom-6 left-1/2 hidden -translate-x-1/2 flex-col items-center gap-2 text-muted-foreground lg:flex">
+        <span className="text-[10px] uppercase tracking-[0.18em]">Scroll</span>
+        <div className="h-8 w-px bg-gradient-to-b from-tan to-transparent" />
       </div>
     </section>
   );
@@ -835,63 +911,149 @@ function HowItWorks() {
   );
 }
 
-function Features() {
-  const features = [
-    {
-      icon: <Ticket className="h-5 w-5" />,
-      title: "Live seat maps",
-      body: "5-minute holds. No overbooking. No double-selling. The seat you tap is yours.",
-    },
-    {
-      icon: <ShieldCheck className="h-5 w-5" />,
-      title: "Verified students",
-      body: "Only verified students at your institution can book — so fares stay student-only.",
-    },
-    {
-      icon: <MapIcon className="h-5 w-5" />,
-      title: "Real-time GPS",
-      body: "Watch your bus roll in on a live map. Get notified when it's 2 minutes away.",
-    },
-    {
-      icon: <Activity className="h-5 w-5" />,
-      title: "Offline-first tickets",
-      body: "Drivers scan QR codes offline. Your ticket works even with no signal.",
-    },
-    {
-      icon: <Heart className="h-5 w-5" />,
-      title: "Parent-paid trips",
-      body: "Parents can pay for and track your ride — with your explicit consent.",
-    },
-    {
-      icon: <Sparkles className="h-5 w-5" />,
-      title: "Honest pricing",
-      body: "Fares in pesewa. No hidden fees. Refunds in 3–5 days, fair policy.",
-    },
-  ];
+function FeaturesBento() {
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-16">
-      <div className="mb-10 text-center">
-        <span className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
-          Features
-        </span>
-        <h2 className="mt-3 font-display text-3xl font-bold">
-          Built for student life in Ghana.
-        </h2>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {features.map((f) => (
-          <TiltCard key={f.title} className="rounded-2xl">
-            <div className="flex h-full flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-card">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-grad-primary text-primary-foreground">
-                {f.icon}
+    <section className="mx-auto w-full max-w-6xl px-4 section-edit">
+      <Reveal>
+        <div className="mb-12 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <span className="eyebrow">Features</span>
+            <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3.25rem)] font-medium leading-[1.05] tracking-tight">
+              Built for student life in Ghana.
+            </h2>
+          </div>
+          <p className="max-w-sm text-sm text-muted-foreground">
+            Six pillars holding the product up. Each one is wired to real APIs, real data, and real money — no mocks in the final build.
+          </p>
+        </div>
+      </Reveal>
+
+      <RevealStagger className="[&>*]:transition-colors">
+        <BentoGrid cols={3}>
+          {/* Hero feature — spans 2 cols, 2 rows */}
+          <BentoCell span={2} rowSpan={2} className="flex flex-col justify-between gap-6">
+            <div>
+              <span className="eyebrow flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-tan" /> Pillar 01
               </span>
-              <h3 className="font-display text-lg font-semibold">{f.title}</h3>
-              <p className="text-sm text-muted-foreground">{f.body}</p>
+              <h3 className="mt-4 font-display text-3xl font-medium leading-tight tracking-tight">
+                Live seat maps with 5-minute atomic holds.
+              </h3>
+              <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground">
+                Pick your seat from a live layout. It’s held for 5 minutes while you pay — locked at the database level with a unique constraint, so two students can never grab the same seat. pg_cron releases expired holds every minute.
+              </p>
             </div>
-          </TiltCard>
+            <SeatMapPreview />
+          </BentoCell>
+
+          <BentoCell>
+            <span className="eyebrow">Pillar 02</span>
+            <h3 className="mt-3 font-display text-xl font-medium leading-tight">Verified students only</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Student ID or school email. Admin fallback approval. Fares stay student-only.
+            </p>
+          </BentoCell>
+
+          <BentoCell>
+            <span className="eyebrow">Pillar 03</span>
+            <h3 className="mt-3 font-display text-xl font-medium leading-tight">Real-time GPS tracking</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Driver position every 3–5s. Animated marker on the map. ETA recomputed server-side.
+            </p>
+          </BentoCell>
+
+          <BentoCell span={2} className="flex items-center justify-between gap-6">
+            <div>
+              <span className="eyebrow">Pillar 04</span>
+              <h3 className="mt-3 font-display text-xl font-medium leading-tight">Offline-first QR tickets</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Signed with HMAC-SHA256. Drivers verify offline, sync scans when online. First valid scan wins on conflict.
+              </p>
+            </div>
+            <TicketPreview />
+          </BentoCell>
+
+          <BentoCell>
+            <span className="eyebrow">Pillar 05</span>
+            <h3 className="mt-3 font-display text-xl font-medium leading-tight">Parent peace of mind</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Consent-based link. Live trip view + SMS alerts: boarded, delay, arrived safely.
+            </p>
+          </BentoCell>
+
+          <BentoCell>
+            <span className="eyebrow">Pillar 06</span>
+            <h3 className="mt-3 font-display text-xl font-medium leading-tight">Honest pricing in pesewa</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              GHS-first. Mobile money + cards. Refunds in 3–5 days under a fair, configurable policy.
+            </p>
+          </BentoCell>
+        </BentoGrid>
+      </RevealStagger>
+    </section>
+  );
+}
+
+function SeatMapPreview() {
+  const seats = Array.from({ length: 16 });
+  const heldIdx = [3, 11];
+  const bookedIdx = [0, 1, 7, 8];
+  return (
+    <div className="rounded-lg border border-border bg-background/60 p-4">
+      <div className="mb-2 flex items-center justify-between text-[10px] text-muted-foreground">
+        <span>Coaster 32 · Front row +GH₵5</span>
+        <span className="flex items-center gap-2">
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-tan" />Held</span>
+          <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-sm bg-foreground/30" />Booked</span>
+        </span>
+      </div>
+      <div className="grid grid-cols-8 gap-1">
+        {seats.map((_, i) => (
+          <span
+            key={i}
+            className={cn(
+              "aspect-square rounded-sm border text-[8px] flex items-center justify-center",
+              bookedIdx.includes(i)
+                ? "border-transparent bg-foreground/15 text-foreground/40"
+                : heldIdx.includes(i)
+                  ? "border-tan bg-tan/20 text-tan"
+                  : "border-border bg-card text-muted-foreground",
+            )}
+          >
+            {String.fromCharCode(65 + Math.floor(i / 8))}{(i % 8) + 1}
+          </span>
         ))}
       </div>
-    </section>
+    </div>
+  );
+}
+
+function TicketPreview() {
+  return (
+    <div className="hidden shrink-0 rounded-md border border-border bg-background/60 p-3 sm:block">
+      <div className="mb-2 flex items-center justify-between text-[9px]">
+        <span className="eyebrow">Aboard · Boarding pass</span>
+        <span className="font-mono text-tan">AB-2026-X4K9</span>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="grid h-16 w-16 grid-cols-[repeat(8,1fr)] grid-rows-[repeat(8,1fr)] gap-px rounded-sm bg-foreground p-px">
+          {Array.from({ length: 64 }).map((_, i) => (
+            <span
+              key={i}
+              className={cn(
+                "rounded-[1px]",
+                (i * 7 + 3) % 5 === 0 ? "bg-background" : "bg-foreground",
+              )}
+            />
+          ))}
+        </div>
+        <div className="text-xs">
+          <div className="font-display font-medium">Cape Coast → Accra</div>
+          <div className="text-muted-foreground">Seat 4B · 06:00</div>
+          <div className="mt-1 font-mono text-[10px] text-tan">SHA256-signed</div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -952,64 +1114,164 @@ function Roles() {
   );
 }
 
-function ThemeShowcase() {
+function RoutesShowcase() {
+  const routes = ROUTE_SEEDS.slice(0, 6);
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-16">
-      <div className="mb-8 text-center">
-        <h2 className="font-display text-3xl font-bold">Three themes.</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Pick the one that matches your ride. Black is the structural belt that
-          holds it all together.
-        </p>
-      </div>
-      <div className="grid gap-4 sm:grid-cols-3">
-        <ThemeCard id="emerald" label="Emerald" sub="Default — Ghana green" swatches={["#047857", "#10b981", "#f59e0b"]} />
-        <ThemeCard id="sunset" label="Sunset" sub="Warm savanna sunsets" swatches={["#ea580c", "#f59e0b", "#10b981"]} />
-        <ThemeCard id="midnight" label="Midnight" sub="Dark-first, cool teal" swatches={["#14b8a6", "#0f766e", "#fbbf24"]} />
-      </div>
-      <div className="mt-6 flex justify-center">
-        <ThemeSwitcherInline />
+    <section className="bg-cream/40 py-20">
+      <div className="mx-auto w-full max-w-6xl px-4">
+        <Reveal>
+          <div className="mb-12 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <span className="eyebrow">Pilot routes</span>
+              <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3.25rem)] font-medium leading-[1.05] tracking-tight">
+                {`10 routes. 16 regions. One hub at Cape Coast.`}
+              </h2>
+            </div>
+            <p className="max-w-sm text-sm text-muted-foreground">
+              Every Ghana region connected to UCC by semester-ready schedules. Cape Coast is the pilot hub; expansion to KNUST, Legon, and UG follows the same route-onboarding pattern.
+            </p>
+          </div>
+        </Reveal>
+
+        <RevealStagger className="grid gap-px bg-border md:grid-cols-3">
+          {routes.map((r) => (
+            <RevealItem key={r.id}>
+              <div className="group flex h-full flex-col justify-between gap-4 bg-card p-6 transition-colors hover:bg-secondary/40">
+                <div>
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <MapPin className="h-3 w-3 text-tan" />
+                    {r.originRegion}
+                    <ChevronRight className="h-3 w-3" />
+                    {r.destRegion}
+                  </div>
+                  <div className="mt-2 flex items-baseline gap-2">
+                    <span className="font-display text-xl font-medium">{r.originName}</span>
+                    <span className="text-muted-foreground">→</span>
+                    <span className="font-display text-xl font-medium">{r.destName}</span>
+                  </div>
+                </div>
+                <div className="flex items-end justify-between border-t border-border pt-3">
+                  <div className="text-xs text-muted-foreground">
+                    {Math.floor(r.durationMin / 60)}h {r.durationMin % 60}m · {r.distanceKm} km
+                  </div>
+                  <div className="font-display text-lg font-medium text-tan">
+                    {formatGHS(r.pricePesewa)}
+                  </div>
+                </div>
+              </div>
+            </RevealItem>
+          ))}
+        </RevealStagger>
       </div>
     </section>
   );
 }
 
-function ThemeCard({
-  id,
-  label,
-  sub,
-  swatches,
-}: {
-  id: string;
-  label: string;
-  sub: string;
-  swatches: string[];
-}) {
+function FAQSection() {
+  const faqs = [
+    {
+      q: "How do I verify as a student?",
+      a: "Sign up with your school email (e.g. @ucc.edu.gh) or your student ID number. The admin can also approve you manually. Until you’re verified you can browse trips but can’t book a seat.",
+    },
+    {
+      q: "What happens if I don’t pay within 5 minutes?",
+      a: "The seat hold expires automatically. A pg_cron job runs every minute and releases expired holds, so the seat returns to the available pool for other students to book.",
+    },
+    {
+      q: "Can my parent pay for my trip?",
+      a: "Yes. You send a parent link request from your profile. Once your parent accepts (consent required), they can pay for and follow your trips. You can revoke access at any time.",
+    },
+    {
+      q: "Does the QR ticket work without internet?",
+      a: "Yes. The ticket is signed with HMAC-SHA256 and stored in your browser. Drivers verify it offline and queue the scan. When their connection returns, scans sync with conflict resolution (first valid scan wins).",
+    },
+    {
+      q: "What’s the refund policy?",
+      a: "Full refund if cancelled more than 2 hours before departure. 50% refund if 30 minutes to 2 hours before. No refund within 30 minutes of departure. Operator-cancelled trips are always fully refunded.",
+    },
+    {
+      q: "Which payment methods are supported?",
+      a: "Mobile money first (MTN MoMo, Telecel Cash, AirtelTigo Money) and Visa/Mastercard. The provider is abstracted behind a PaymentProvider interface so Hubtel or Paystack can be swapped in by changing one config.",
+    },
+  ];
   return (
-    <button
-      type="button"
-      data-theme-card={id}
-      className="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-left shadow-card transition-colors hover:border-primary/40"
-    >
-      <div className="flex -space-x-1">
-        {swatches.map((c, i) => (
-          <span
-            key={i}
-            className="h-8 w-8 rounded-full ring-2 ring-background"
-            style={{ background: c }}
-          />
+    <section className="mx-auto w-full max-w-3xl px-4 section-edit">
+      <Reveal>
+        <div className="mb-10 text-center">
+          <span className="eyebrow">Questions</span>
+          <h2 className="mt-2 font-display text-[clamp(2rem,4vw,3rem)] font-medium leading-tight tracking-tight">
+            Things students ask us.
+          </h2>
+        </div>
+      </Reveal>
+      <div className="divide-y divide-border border-y border-border">
+        {faqs.map((f, i) => (
+          <Reveal key={f.q} delay={i * 0.04}>
+            <details className="group py-5">
+              <summary className="flex cursor-pointer items-center justify-between gap-4 list-none">
+                <span className="font-display text-base font-medium leading-snug">{f.q}</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-transform group-open:rotate-45">
+                  +
+                </span>
+              </summary>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">{f.a}</p>
+            </details>
+          </Reveal>
         ))}
       </div>
-      <div>
-        <div className="font-display font-semibold">{label}</div>
-        <div className="text-xs text-muted-foreground">{sub}</div>
-      </div>
-    </button>
+    </section>
   );
 }
 
-function ThemeSwitcherInline() {
-  return <ThemeSwitcher />;
+function CTASection({ onExplore }: { onExplore: () => void }) {
+  return (
+    <section
+      className="belt relative overflow-hidden py-24"
+      data-cursor-section="belt"
+    >
+      <MeshGradient variant="ink" className="opacity-70" />
+      <div className="relative mx-auto w-full max-w-4xl px-4 text-center">
+        <Reveal>
+          <span className="eyebrow text-tan">Ready when you are</span>
+        </Reveal>
+        <Reveal delay={0.05}>
+          <h2 className="mt-4 font-display text-[clamp(2.25rem,5vw,4rem)] font-medium leading-[1.0] tracking-tight text-belt-foreground">
+            Find your seat.
+            <br />
+            <span className="italic font-light text-tan">Arrive safe.</span>
+          </h2>
+        </Reveal>
+        <Reveal delay={0.1}>
+          <p className="mx-auto mt-5 max-w-md text-base leading-relaxed text-belt-foreground/70">
+            Piloting now at the University of Cape Coast. Bring your student ID and let’s get you home for the break.
+          </p>
+        </Reveal>
+        <Reveal delay={0.15}>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+            <MagneticWrap>
+              <Button
+                onClick={onExplore}
+                size="lg"
+                className="rounded-full bg-grad-primary px-7 text-base font-medium shadow-glow"
+              >
+                <Search className="mr-1.5 h-4 w-4" />
+                Find a trip
+              </Button>
+            </MagneticWrap>
+            <MagneticWrap strength={0.3}>
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-full border-belt-foreground/20 bg-transparent px-7 text-base font-medium text-belt-foreground hover:bg-belt-foreground/10"
+              >
+                How it works
+              </Button>
+            </MagneticWrap>
+          </div>
+        </Reveal>
+      </div>
+    </section>
+  );
 }
 
 function ExploreView({
