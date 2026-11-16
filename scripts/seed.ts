@@ -27,8 +27,15 @@ const PIVOT_DAYS = 5;
 const DEPARTURE_HOURS = [6, 9, 13];
 
 async function main() {
-  console.log("🧹 Wiping database…");
-  await wipeAll(db);
+  // Only seed if the database is empty — don't wipe existing users
+  const userCount = await db.user.count();
+  if (userCount > 0) {
+    console.log(`✅ Database already has ${userCount} users — skipping seed.`);
+    console.log("   (New users can sign up via the app — their data persists.)");
+    return;
+  }
+
+  console.log("🌱 Seeding Aboard…");
 
   console.log("👤 Creating admin user…");
   const adminUser = await db.user.create({

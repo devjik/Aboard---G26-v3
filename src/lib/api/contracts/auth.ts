@@ -42,8 +42,10 @@ export const StudentRegister = z.object({
   phone: z.string().regex(ghanaPhoneRegex, "Invalid Ghana phone number"),
   email: z.string().email().optional(),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  institution: z.string().min(2, "Institution is required"),
-  studentIdNumber: z.string().min(2, "Student ID is required"),
+  institution: z.string().min(2, "Institution is required").optional(),
+  studentIdNumber: z.string().min(2, "Student ID is required").optional(),
+  role: z.enum(["STUDENT", "DRIVER"]).default("STUDENT"),
+  licenseNumber: z.string().optional(),
 });
 export type StudentRegisterT = z.infer<typeof StudentRegister>;
 

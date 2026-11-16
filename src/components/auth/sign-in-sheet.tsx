@@ -43,6 +43,15 @@ export function SignInSheet({
   const [emailStage, setEmailStage] = useState<OtpStage>("request");
   const [emailDevCode, setEmailDevCode] = useState<string | null>(null);
   const [selectedRole, setSelectedRole] = useState<RoleChoice | null>(null);
+  const [showSignUp, setShowSignUp] = useState(false);
+  // sign-up form fields
+  const [suName, setSuName] = useState("");
+  const [suPhone, setSuPhone] = useState("");
+  const [suEmail, setSuEmail] = useState("");
+  const [suPassword, setSuPassword] = useState("");
+  const [suInstitution, setSuInstitution] = useState("University of Cape Coast");
+  const [suStudentId, setSuStudentId] = useState("");
+  const [suLicense, setSuLicense] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -55,8 +64,35 @@ export function SignInSheet({
       setEmail("");
       setEmailStage("request");
       setEmailDevCode(null);
+      setShowSignUp(false);
+      setSuName(""); setSuPhone(""); setSuEmail(""); setSuPassword("");
+      setSuStudentId(""); setSuLicense("");
     }
   }, [open]);
+
+  const signUpMut = useMutation({
+    mutationFn: () =>
+      apiClient.auth.register({
+        name: suName,
+        phone: suPhone,
+        email: suEmail || undefined,
+        password: suPassword,
+        institution: selectedRole === "STUDENT" ? suInstitution : undefined,
+        studentIdNumber: selectedRole === "STUDENT" ? suStudentId : undefined,
+        role: selectedRole === "DRIVER" ? "DRIVER" : "STUDENT",
+        licenseNumber: selectedRole === "DRIVER" ? suLicense : undefined,
+      }),
+    onSuccess: (data) => {
+      toast.success(`Welcome to ${APP_NAME}, ${data.user.name}!`, {
+        description: "Your account has been created. You're now signed in.",
+      });
+      onSignedIn?.(data.user);
+      onClose();
+    },
+    onError: (e: any) => {
+      toast.error(e instanceof ApiError ? e.message : "Registration failed");
+    },
+  });
 
   const loginMut = useMutation({
     mutationFn: () =>
@@ -434,6 +470,86 @@ export function SignInSheet({
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Sign-up link / form */}
+        {!showSignUp ? (
+          <button
+            onClick={() => setShowSignUp(true)}
+            className="w-full text-center text-xs text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Don't have an account? <span className="font-semibold text-primary">Sign up</span>
+          </button>
+        ) : (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-3 rounded-xl border border-border bg-muted/30 p-4"
+          >
+            <div className="flex items-center justify-between">
+              <h4 className="font-display text-sm font-semibold">Create account</h4>
+              <button onClick={() => setShowSignUp(false)} className="text-xs text-muted-foreground hover:text-foreground">
+                Back to sign in
+              </button>
+            </div>
+
+            {/* Role-specific fields */}
+            <div>
+              <Label htmlFor="su-name">Full name</Label>
+              <Input id="su-name" value={suName} onChange={(e) => setSuName(e.target.value)} placeholder="e.g. Ama Owusu" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="su-phone">Phone</Label>
+                <Input id="su-phone" type="tel" value={suPhone} onChange={(e) => setSuPhone(e.target.value)} placeholder="0240000001" />
+              </div>
+              <div>
+                <Label htmlFor="su-email">Email (optional)</Label>
+                <Input id="su-email" type="email" value={suEmail} onChange={(e) => setSuEmail(e.target.value)} placeholder="you@gmail.com" />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="su-pass">Password</Label>
+              <Input id="su-pass" type="password" value={suPassword} onChange={(e) => setSuPassword(e.target.value)} placeholder="min 6 characters" />
+            </div>
+
+            {/* Student-specific fields */}
+            {(!selectedRole || selectedRole === "STUDENT") && (
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="su-inst">Institution</Label>
+                  <Input id="su-inst" value={suInstitution} onChange={(e) => setSuInstitution(e.target.value)} placeholder="University of Cape Coast" />
+                </div>
+                <div>
+                  <Label htmlFor="su-sid">Student ID</Label>
+                  <Input id="su-sid" value={suStudentId} onChange={(e) => setSuStudentId(e.target.value)} placeholder="UCC/2024/001" />
+                </div>
+              </div>
+            )}
+
+            {/* Driver-specific fields */}
+            {selectedRole === "DRIVER" && (
+              <div>
+                <Label htmlFor="su-license">Driver's license number</Label>
+                <Input id="su-license" value={suLicense} onChange={(e) => setSuLicense(e.target.value)} placeholder="DL-2024-001" />
+              </div>
+            )}
+
+            <Button
+              onClick={() => signUpMut.mutate()}
+              disabled={signUpMut.isPending || !suName || !suPhone || !suPassword || (!selectedRole || selectedRole === "STUDENT" ? !suStudentId : !suLicense)}
+              className="w-full gap-1.5 bg-grad-primary text-white hover:opacity-90"
+            >
+              {signUpMut.isPending ? (
+                <><Loader2 className="size-4 animate-spin" /> Creating account…</>
+              ) : (
+                <><ShieldCheck className="size-4" /> Create account & sign in</>
+              )}
+            </Button>
+            <p className="text-center text-[10px] text-muted-foreground">
+              By signing up you agree to Aboard's Terms and Privacy Policy.
+            </p>
+          </motion.div>
+        )}
 
         <div className="rounded-xl border border-border bg-muted/40 p-3 text-[11px] text-muted-foreground">
           <p className="font-medium text-foreground">Demo accounts</p>

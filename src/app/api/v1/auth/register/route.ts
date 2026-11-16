@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       meta: { correlationId: corr },
     }).response;
   }
-  const { name, phone, email, password, institution, studentIdNumber } =
+  const { name, phone, email, password, institution, studentIdNumber, role, licenseNumber } =
     parsed.data;
 
   const existingPhone = await db.user.findUnique({
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (existingPhone) {
     return errorResponse(ERRORS.CONFLICT, {
       code: "PHONE_TAKEN",
-      message: "Phone number already registered",
+      message: "Phone number already registered. Log in instead.",
       meta: { correlationId: corr },
     }).response;
   }
@@ -50,24 +50,44 @@ export async function POST(req: NextRequest) {
     if (existingEmail) {
       return errorResponse(ERRORS.CONFLICT, {
         code: "EMAIL_TAKEN",
-        message: "Email already registered",
+        message: "Email already registered. Log in instead.",
         meta: { correlationId: corr },
       }).response;
     }
   }
-  const existingStudentId = await db.student.findUnique({
-    where: { institution_studentIdNumber: { institution, studentIdNumber } },
-    select: { id: true },
-  });
-  if (existingStudentId) {
-    return errorResponse(ERRORS.CONFLICT, {
-      code: "STUDENT_ID_TAKEN",
-      message: "Student ID already registered at this institution",
-      meta: { correlationId: corr },
-    }).response;
+
+  // For students, check student ID uniqueness
+  if (role === "STUDENT" && institution && studentIdNumber) {
+    const existingStudentId = await db.student.findUnique({
+      where: { institution_studentIdNumber: { institution, studentIdNumber } },
+      select: { id: true },
+    });
+    if (existingStudentId) {
+      return errorResponse(ERRORS.CONFLICT, {
+        code: "STUDENT_ID_TAKEN",
+        message: "Student ID already registered at this institution",
+        meta: { correlationId: corr },
+      }).response;
+    }
+  }
+
+  // For drivers, check license uniqueness
+  if (role === "DRIVER" && licenseNumber) {
+    const existingLicense = await db.driver.findUnique({
+      where: { licenseNumber },
+      select: { id: true },
+    });
+    if (existingLicense) {
+      return errorResponse(ERRORS.CONFLICT, {
+        code: "LICENSE_TAKEN",
+        message: "License number already registered",
+        meta: { correlationId: corr },
+      }).response;
+    }
   }
 
   const passwordHash = hashPassword(password);
+
   try {
     const user = await db.user.create({
       data: {
@@ -75,17 +95,33 @@ export async function POST(req: NextRequest) {
         phone,
         email: email ?? null,
         passwordHash,
-        role: "STUDENT",
+        role,
         status: "ACTIVE",
-        student: {
-          create: {
-            institution,
-            studentIdNumber,
-            verificationStatus: "PENDING",
-          },
-        },
+        ...(role === "STUDENT"
+          ? {
+              student: {
+                create: {
+                  institution: institution ?? "University of Cape Coast",
+                  studentIdNumber: studentIdNumber ?? `GEN-${Date.now()}`,
+                  verificationStatus: "PENDING",
+                },
+              },
+            }
+          : {}),
+        ...(role === "DRIVER"
+          ? {
+              driver: {
+                create: {
+                  licenseNumber: licenseNumber ?? `DL-${Date.now()}`,
+                  status: "ACTIVE",
+                  ratingAvg: 0,
+                  ratingCount: 0,
+                },
+              },
+            }
+          : {}),
       },
-      include: { student: true },
+      include: { student: true, driver: true },
     });
     await setSessionCookies({
       userId: user.id,
