@@ -79,14 +79,15 @@ export function RealMapView({
     return unsub;
   }, [tripDetail?.id, subscribe]);
 
-  // Proximity check: when student is within 200m of driver, notify parent
+  // Proximity check: when student is within 200m of driver, notify
+  // parent + admin that the meetup happened and the journey is starting.
   useEffect(() => {
     if (!geo.point || !driver || !tripDetail?.id || !user) return;
     const dist = distanceMeters(geo.point.lat, geo.point.lng, driver.lat, driver.lng);
     if (dist <= BOARDING_THRESHOLD_M && !boardingNotifiedRef.current) {
       boardingNotifiedRef.current = true;
       apiClient.notifications
-        .notifyBoarding({
+        .notifyMeetup({
           tripId: tripDetail.id,
           studentId: user.id,
           distanceMeters: dist,
@@ -97,8 +98,8 @@ export function RealMapView({
         })
         .then((res) => {
           if (res.ok && !res.alreadyNotified) {
-            toast.success("Boarding detected!", {
-              description: `You're ${Math.round(dist)}m from the bus. Your parent has been notified you're aboard.`,
+            toast.success("Meetup detected — journey starting!", {
+              description: `You're ${Math.round(dist)}m from the bus. Parent and admin have been notified the journey is starting.`,
             });
           }
         })

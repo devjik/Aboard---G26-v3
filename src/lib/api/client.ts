@@ -416,5 +416,16 @@ export const apiClient = {
       studentLat: number;
       studentLng: number;
     }) => api.post<{ ok: boolean; parentsNotified: number; alreadyNotified?: boolean }>("/api/v1/notifications/boarding", body),
+    notifyMeetup: (body: {
+      tripId: string;
+      studentId: string;
+      distanceMeters: number;
+      driverLat: number;
+      driverLng: number;
+      studentLat: number;
+      studentLng: number;
+    }) => api.post<{ ok: boolean; studentsNotified: number; parentsNotified: number; adminsNotified: number; alreadyNotified?: boolean }>("/api/v1/notifications/meetup", body),
+    notifyTripStarted: (tripId: string) =>
+      api.post<{ ok: boolean; studentsNotified: number; parentsNotified: number; adminsNotified: number }>("/api/v1/notifications/trip-started", { tripId }),
   },
 };

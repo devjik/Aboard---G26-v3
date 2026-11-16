@@ -117,7 +117,7 @@ export function DriverMode({ user }: DriverModeProps) {
             <>
               <div>
                 <h2 className="font-display text-lg font-semibold">You're driving</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Your live GPS is the bus position. Students see you in real time. When a student gets within 200m, their parent is automatically notified.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Your live GPS is the bus position. Students see you in real time. When a student gets within 200m, their parent and admin are automatically notified.</p>
               </div>
               {lastBroadcast && (
                 <div className="w-full rounded-xl border border-border bg-muted/30 p-3 text-left text-xs">
@@ -125,6 +125,23 @@ export function DriverMode({ user }: DriverModeProps) {
                   <div className="mt-1 flex items-center justify-between"><span className="text-muted-foreground">Updated</span><span>{Math.round((Date.now() - lastBroadcast.ts) / 1000)}s ago</span></div>
                 </div>
               )}
+              {/* Bus moving button — notifies all students + parents + admin */}
+              <Button
+                onClick={async () => {
+                  if (!selectedTripId) return;
+                  try {
+                    const res = await apiClient.notifications.notifyTripStarted(selectedTripId);
+                    toast.success("Bus moving notification sent!", {
+                      description: `${res.studentsNotified} student(s), ${res.parentsNotified} parent(s), ${res.adminsNotified} admin(s) notified.`,
+                    });
+                  } catch (e: any) {
+                    toast.error("Could not send notification", { description: e?.message });
+                  }
+                }}
+                className="gap-1.5 bg-grad-accent text-white hover:opacity-90"
+              >
+                <Bus className="size-4" /> Notify: Bus is moving
+              </Button>
               <Button onClick={stopDriving} variant="destructive" className="gap-1.5"><Square className="size-4" /> Stop driving</Button>
             </>
           ) : (
