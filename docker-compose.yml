@@ -1,0 +1,35 @@
+# Aboard — Docker Compose (web app + optional tracking service)
+services:
+  # Main Next.js app — port 3000
+  web:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+      - /app/db
+    environment:
+      - DATABASE_URL=file:./db/custom.db
+      - ABOARD_SESSION_SECRET=aboard-dev-secret-change-me-32-chars-min
+      - ABOARD_PAYMENT_SANDBOX_KEY=aboard-sandbox-key
+      - NODE_ENV=development
+    restart: unless-stopped
+
+  # Socket.IO tracking mini-service — port 3003 (optional)
+  # Only needed for live driver GPS broadcast. The app works without it
+  # (the live map shows stops + simulated driver position).
+  tracker:
+    build: .
+    ports:
+      - "3003:3003"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - DATABASE_URL=file:./db/custom.db
+      - ABOARD_SESSION_SECRET=aboard-dev-secret-change-me-32-chars-min
+    command: ["bun", "--hot", "mini-services/tracking/index.ts"]
+    restart: unless-stopped
+    profiles: ["full"]  # only starts with: docker compose --profile full up
