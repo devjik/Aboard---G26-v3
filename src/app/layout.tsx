@@ -1,30 +1,9 @@
 import type { Metadata, Viewport } from "next";
-import { Inter, JetBrains_Mono, Fraunces } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { CursorProvider } from "@/components/motion/cursor-provider";
 import { themeNoFlashScript } from "@/lib/theme";
 import { APP_NAME, APP_DESCRIPTION } from "@/lib/config/app";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jetbrains = JetBrains_Mono({
-  variable: "--font-jetbrains",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["300", "400", "500", "600", "700"],
-  style: ["normal", "italic"],
-});
 
 export const metadata: Metadata = {
   title: `${APP_NAME} — Get on board. Know you arrived.`,
@@ -77,13 +56,25 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Google Fonts loaded via <link> (avoids next/font/google Turbopack issue) */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500&display=swap"
+          rel="stylesheet"
+        />
+        <style>{`
+          :root {
+            --font-inter: 'Inter', ui-sans-serif, system-ui, sans-serif;
+            --font-jetbrains: 'JetBrains Mono', ui-monospace, monospace;
+            --font-fraunces: 'Fraunces', Georgia, 'Times New Roman', serif;
+          }
+        `}</style>
         <script
           dangerouslySetInnerHTML={{ __html: themeNoFlashScript }}
         />
       </head>
-      <body
-        className={`${inter.variable} ${jetbrains.variable} ${fraunces.variable} antialiased bg-background text-foreground`}
-      >
+      <body className="antialiased bg-background text-foreground">
         <CursorProvider>
           <Providers>{children}</Providers>
         </CursorProvider>
