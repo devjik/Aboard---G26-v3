@@ -4,12 +4,15 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 /**
- * Aboard theme system — Sand Cream + Charcoal + Tan Editorial.
+ * Aboard theme system.
  *
- * One color identity (warm paper + tan accent), two modes (light/dark).
- * The light mode is the signature; dark mode is the polished alternative.
+ * Two color identities, each with light + dark modes:
+ *   - "editorial": sand cream + charcoal + tan (warm, paper, magazine)
+ *   - "charcoal":  charcoal + white (monochrome, high-contrast, stark)
+ *
+ * The light mode is the signature for each; dark mode is the polished alternative.
  */
-export type ColorTheme = "editorial"; // single identity; kept as type for future expansion
+export type ColorTheme = "editorial" | "charcoal";
 export type Mode = "light" | "dark";
 
 export interface ThemeState {
@@ -49,6 +52,12 @@ export const COLOR_THEMES: Array<{
     description: "Sand cream + charcoal + tan",
     swatches: ["#FBF6EC", "#1E1A14", "#B8895A"],
   },
+  {
+    id: "charcoal",
+    label: "Mono",
+    description: "Charcoal + white (high contrast)",
+    swatches: ["#FFFFFF", "#0F0F0F", "#666666"],
+  },
 ];
 
 export function applyTheme(color: ColorTheme, mode: Mode): void {
@@ -62,4 +71,4 @@ export function applyTheme(color: ColorTheme, mode: Mode): void {
   }
 }
 
-export const themeNoFlashScript = `(function(){try{var s=localStorage.getItem('aboard-theme');if(!s){document.documentElement.setAttribute('data-theme','editorial');return;}var p=JSON.parse(s);var c=(p&&p.state&&p.state.color)||'editorial';var m=(p&&p.state&&p.state.mode)||'light';document.documentElement.setAttribute('data-theme',c);if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','editorial');}})();`;
+export const themeNoFlashScript = `(function(){try{var s=localStorage.getItem('aboard-theme');var c='editorial';var m='light';if(s){var p=JSON.parse(s);if(p&&p.state){c=(p.state.color==='charcoal')?'charcoal':'editorial';m=(p.state.mode==='dark')?'dark':'light';}}document.documentElement.setAttribute('data-theme',c);if(m==='dark'){document.documentElement.classList.add('dark');}}catch(e){document.documentElement.setAttribute('data-theme','editorial');}})();`;

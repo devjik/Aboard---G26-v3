@@ -1,65 +1,38 @@
 "use client";
 
 import { useEffect } from "react";
-import { MapContainer, TileLayer, Marker, Polyline, Popup, Circle, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import {
+  Map,
+  MapMarker,
+  MarkerContent,
+  MarkerPopup,
+  MapControls,
+  MapRoute,
+  useMap,
+  type Theme,
+} from "@/components/ui/map";
+import { useThemeStore } from "@/lib/theme";
 
-// Fix default marker icon paths under bundlers
-const DefaultIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
-L.Marker.prototype.options.icon = DefaultIcon;
+/**
+ * MapInner — mapcn (MapLibre GL) implementation.
+ *
+ * Replaces the previous react-leaflet version. Same props interface so
+ * RealMapView doesn't change. Uses mapcn's CARTO basemap which auto-switches
+ * light/dark — we pass the app's current mode explicitly to keep the map
+ * in sync with the theme toggle.
+ *
+ * Note: maplibre uses [longitude, latitude] order (opposite of leaflet).
+ */
 
-const KEYFRAMES = `@keyframes aboard-ping { 0% { transform: scale(0.6); opacity: 0.85; } 80%, 100% { transform: scale(2.4); opacity: 0; } }
-/* Lower Leaflet's z-index panes so modals/bottom-sheets (z-50+) sit on top.
-   Leaflet defaults to 200-700; we clamp everything to 0-40 so the booking
-   sheet and other overlays always render above the map. */
-.leaflet-pane { z-index: 0 !important; }
-.leaflet-tile-pane { z-index: 0 !important; }
-.leaflet-overlay-pane { z-index: 1 !important; }
-.leaflet-shadow-pane { z-index: 1 !important; }
-.leaflet-marker-pane { z-index: 10 !important; }
-.leaflet-tooltip-pane { z-index: 10 !important; }
-.leaflet-popup-pane { z-index: 20 !important; }
-.leaflet-map-pane { z-index: 0 !important; }
-.leaflet-control { z-index: 10 !important; }
-.leaflet-top, .leaflet-bottom { z-index: 10 !important; }
-`;
-
-function divIcon(html: string, className: string, size = 24): L.DivIcon {
-  return L.divIcon({
-    html,
-    className,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
+const KEYFRAMES = `
+@keyframes aboard-ping {
+  0% { transform: scale(0.6); opacity: 0.85; }
+  80%, 100% { transform: scale(2.4); opacity: 0; }
 }
-
-const userIcon = divIcon(
-  `<span style="position:relative;display:inline-block;width:14px;height:14px;border-radius:999px;background:#0ea5e9;border:2px solid white;box-shadow:0 0 0 6px rgba(14,165,233,0.25);"></span><span style="position:absolute;inset:0;border-radius:999px;background:rgba(14,165,233,0.45);animation:aboard-ping 1.6s ease-out infinite;"></span>`,
-  "aboard-leaflet-user-icon",
-  14,
-);
-
-const driverIcon = divIcon(
-  `<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:999px;background:var(--primary,#047857);border:2px solid white;box-shadow:0 0 0 6px rgba(4,120,87,0.25);color:white;font-size:10px;font-weight:bold;">🚌</span><span style="position:absolute;inset:0;border-radius:999px;background:rgba(4,120,87,0.45);animation:aboard-ping 1.6s ease-out infinite;"></span>`,
-  "aboard-leaflet-driver-icon",
-  24,
-);
-
-const stopIcon = divIcon(
-  `<span style="display:inline-block;width:10px;height:10px;border-radius:999px;background:#f59e0b;border:2px solid white;"></span>`,
-  "aboard-leaflet-stop-icon",
-  10,
-);
+/* Keep maplibre panes below app overlays (z-50+) */
+.maplibregl-map { z-index: 0 !important; }
+.maplibregl-ctrl { z-index: 10 !important; }
+`;
 
 export interface MapInnerProps {
   userPosition?: { lat: number; lng: number; accuracy?: number } | null;
@@ -74,19 +47,32 @@ export interface MapInnerProps {
   className?: string;
 }
 
+/** FitBounds — child of <Map>, calls maplibre fitBounds on point changes. */
 function FitBounds({
   points,
 }: {
   points: Array<{ lat: number; lng: number }>;
 }) {
   const map = useMap();
-  // refit whenever the set of points changes (e.g. new trip selected)
   useEffect(() => {
-    if (points.length === 0) return;
-    const bounds = L.latLngBounds(points.map((p) => [p.lat, p.lng] as [number, number]));
-    const padded = bounds.pad(0.25);
-    map.fitBounds(padded, { animate: true });
-  }, [points, map]);
+    if (!map || points.length === 0) return;
+    // maplibre expects [lng, lat] pairs
+    const lngLats = points.map((p) => [p.lng, p.lat] as [number, number]);
+    const lngs = lngLats.map((c) => c[0]);
+    const lats = lngLats.map((c) => c[1]);
+    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
+    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
+    // pad by ~25% so markers aren't at the very edge
+    const padLng = (ne[0] - sw[0]) * 0.25 || 0.1;
+    const padLat = (ne[1] - sw[1]) * 0.25 || 0.1;
+    map.fitBounds(
+      [
+        [sw[0] - padLng, sw[1] - padLat],
+        [ne[0] + padLng, ne[1] + padLat],
+      ],
+      { animate: true, duration: 800 },
+    );
+  }, [map, points]);
   return null;
 }
 
@@ -97,83 +83,173 @@ export function MapInner({
   routeLine,
   className,
 }: MapInnerProps) {
+  const mode = useThemeStore((s) => s.mode);
+  const mapTheme: Theme = mode === "dark" ? "dark" : "light";
+
   const allPoints: Array<{ lat: number; lng: number }> = [];
   if (userPosition) allPoints.push(userPosition);
   if (driverPosition) allPoints.push(driverPosition);
   for (const s of stops) allPoints.push(s);
   const line = routeLine ?? stops.map((s) => ({ lat: s.lat, lng: s.lng }));
 
+  // maplibre [lng, lat] pairs for the route
+  const routeCoords: [number, number][] = line.map((p) => [p.lng, p.lat]);
+
+  // Default center: Cape Coast if no points
+  const center: [number, number] = allPoints[0]
+    ? [allPoints[0].lng, allPoints[0].lat]
+    : [-1.2466, 5.1053];
+
   return (
     <div className={className} style={{ position: "relative" }}>
       <style>{KEYFRAMES}</style>
-      <MapContainer
-        center={
-          allPoints[0]
-            ? [allPoints[0].lat, allPoints[0].lng]
-            : [5.1053, -1.2466]
-        }
-        zoom={8}
-        scrollWheelZoom={false}
+      <Map
+        center={center}
+        zoom={7}
+        theme={mapTheme}
+        scrollZoom={false}
         className="h-[420px] w-full overflow-hidden rounded-2xl border border-border"
+        attributionControl
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <MapControls showZoom showLocate showFullscreen={false} />
+
         <FitBounds points={allPoints} />
-        {line.length > 1 && (
-          <Polyline
-            positions={line.map((p) => [p.lat, p.lng] as [number, number])}
-            pathOptions={{ color: "#047857", weight: 4, dashArray: "8 6" }}
+
+        {routeCoords.length > 1 && (
+          <MapRoute
+            coordinates={routeCoords}
+            color="var(--primary, #b8895a)"
+            width={3}
+            dashArray={[8, 6]}
+            opacity={0.85}
           />
         )}
+
+        {/* Stop markers */}
         {stops.map((s, i) => (
-          <Marker
-            key={i}
-            position={[s.lat, s.lng]}
-            icon={stopIcon}
+          <MapMarker
+            key={`stop-${i}`}
+            longitude={s.lng}
+            latitude={s.lat}
           >
-            <Popup>
-              <strong>{s.name}</strong>
-              <br />
-              <span>{s.type ?? "Stop"}</span>
-            </Popup>
-          </Marker>
-        ))}
-        {userPosition && (
-          <>
-            <Marker
-              position={[userPosition.lat, userPosition.lng]}
-              icon={userIcon}
-            >
-              <Popup>You are here</Popup>
-            </Marker>
-            {typeof userPosition.accuracy === "number" && (
-              <Circle
-                center={[userPosition.lat, userPosition.lng]}
-                radius={userPosition.accuracy}
-                pathOptions={{
-                  color: "#0ea5e9",
-                  fillColor: "#0ea5e9",
-                  fillOpacity: 0.08,
+            <MarkerContent>
+              <span
+                style={{
+                  display: "inline-block",
+                  width: 10,
+                  height: 10,
+                  borderRadius: 999,
+                  background: "var(--primary, #b8895a)",
+                  border: "2px solid white",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.25)",
                 }}
               />
-            )}
-          </>
-        )}
-        {driverPosition && (
-          <Marker
-            position={[driverPosition.lat, driverPosition.lng]}
-            icon={driverIcon}
+            </MarkerContent>
+            <MarkerPopup>
+              <div style={{ fontSize: 12 }}>
+                <strong>{s.name}</strong>
+                <br />
+                <span style={{ color: "var(--muted-foreground, #6b6253)" }}>
+                  {s.type ?? "Stop"}
+                </span>
+              </div>
+            </MarkerPopup>
+          </MapMarker>
+        ))}
+
+        {/* User position */}
+        {userPosition && (
+          <MapMarker
+            longitude={userPosition.lng}
+            latitude={userPosition.lat}
           >
-            <Popup>
-              <strong>Your bus</strong>
-              <br />
-              <span>Simulated GPS · updates every 4s</span>
-            </Popup>
-          </Marker>
+            <MarkerContent>
+              <span
+                style={{
+                  position: "relative",
+                  display: "inline-block",
+                  width: 14,
+                  height: 14,
+                  borderRadius: 999,
+                  background: "#0ea5e9",
+                  border: "2px solid white",
+                  boxShadow: "0 0 0 6px rgba(14,165,233,0.25)",
+                }}
+              />
+              <span
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: 999,
+                  background: "rgba(14,165,233,0.45)",
+                  animation: "aboard-ping 1.6s ease-out infinite",
+                }}
+              />
+            </MarkerContent>
+            <MarkerPopup>
+              <div style={{ fontSize: 12 }}>
+                <strong>You are here</strong>
+                {typeof userPosition.accuracy === "number" && (
+                  <>
+                    <br />
+                    <span style={{ color: "var(--muted-foreground, #6b6253)" }}>
+                      ±{Math.round(userPosition.accuracy)}m accuracy
+                    </span>
+                  </>
+                )}
+              </div>
+            </MarkerPopup>
+          </MapMarker>
         )}
-      </MapContainer>
+
+        {/* Driver position */}
+        {driverPosition && (
+          <MapMarker
+            longitude={driverPosition.lng}
+            latitude={driverPosition.lat}
+          >
+            <MarkerContent>
+              <span
+                style={{
+                  position: "relative",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  background: "var(--primary, #b8895a)",
+                  border: "2px solid white",
+                  boxShadow: "0 0 0 6px rgba(184,137,90,0.25)",
+                  color: "white",
+                  fontSize: 14,
+                  fontWeight: "bold",
+                }}
+              >
+                🚌
+              </span>
+              <span
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  borderRadius: 999,
+                  background: "rgba(184,137,90,0.4)",
+                  animation: "aboard-ping 1.6s ease-out infinite",
+                }}
+              />
+            </MarkerContent>
+            <MarkerPopup>
+              <div style={{ fontSize: 12 }}>
+                <strong>Your bus</strong>
+                <br />
+                <span style={{ color: "var(--muted-foreground, #6b6253)" }}>
+                  Live GPS · updates every 4s
+                </span>
+              </div>
+            </MarkerPopup>
+          </MapMarker>
+        )}
+      </Map>
     </div>
   );
 }
