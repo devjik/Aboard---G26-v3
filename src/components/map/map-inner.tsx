@@ -111,7 +111,7 @@ export function MapInner({
         className="h-[420px] w-full overflow-hidden rounded-2xl border border-border"
         attributionControl
       >
-        <MapControls showZoom showLocate showFullscreen={false} />
+        <MapControls showZoom showLocate={false} showFullscreen={false} />
 
         <FitBounds points={allPoints} />
 

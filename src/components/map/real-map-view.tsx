@@ -30,6 +30,11 @@ const MapInner = dynamic(() => import("./map-inner").then((m) => m.MapInner), {
   loading: () => <Skeleton className="h-[420px] w-full rounded-2xl" />,
 });
 
+const MapErrorBoundary = dynamic(
+  () => import("./map-error-boundary").then((m) => m.MapErrorBoundary),
+  { ssr: false },
+);
+
 export interface RealMapViewProps {
   user?: { id: string; name: string; role: string } | null;
   trips?: Array<{ id: string; originName: string; destName: string; departureAt?: string }>;
@@ -182,14 +187,17 @@ export function RealMapView({
 
   return (
     <div className={cn("relative", className)}>
-      {/* Full-width map — the trip list floats over it */}
+      {/* Full-width map — wrapped in error boundary so a maplibre/WebGL
+          crash doesn't take down the whole page. */}
       <div className="relative h-[480px] overflow-hidden rounded-2xl border border-border bg-card shadow-card sm:h-[580px]">
-        <MapInner
-          userPosition={userPosition}
-          driverPosition={driver}
-          stops={stops}
-          routeLine={stops}
-        />
+        <MapErrorBoundary>
+          <MapInner
+            userPosition={userPosition}
+            driverPosition={driver}
+            stops={stops}
+            routeLine={stops}
+          />
+        </MapErrorBoundary>
 
         {/* status pills — top left */}
         <div className="absolute left-3 top-3 z-30 flex flex-wrap items-center gap-2">
