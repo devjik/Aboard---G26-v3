@@ -30,9 +30,9 @@ function loadMapLibre() {
   maplibrePromise ??= import("maplibre-gl")
     .then((lib) => {
       if (!lib.getWorkerUrl()) {
-        lib.setWorkerUrl(
-          `https://unpkg.com/maplibre-gl@${lib.getVersion()}/dist/maplibre-gl-worker.mjs`,
-        );
+        // Use a locally-hosted worker to avoid cross-origin / CDN issues.
+        // The file is copied from node_modules/maplibre-gl/dist/ to public/.
+        lib.setWorkerUrl("/maplibre-gl-worker.mjs");
       }
       return lib;
     })

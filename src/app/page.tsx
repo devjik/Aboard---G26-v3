@@ -147,6 +147,23 @@ export default function Home() {
     }
   };
 
+  // Restore session on mount — if the user has a valid session cookie
+  // (e.g. after a page reload), fetch their profile so the UI reflects
+  // the signed-in state without requiring a manual sign-in.
+  useEffect(() => {
+    apiClient.auth
+      .me()
+      .then((res: any) => {
+        // The /me endpoint returns { user: AuthUserT } — extract the inner
+        // user object so user.role is accessible to navForRole().
+        const userObj = res?.user ?? res;
+        if (userObj?.id) setUser(userObj);
+      })
+      .catch(() => {
+        /* not signed in — leave user as null */
+      });
+  }, []);
+
   // Guard: if the user's role doesn't allow the current view, fall back to home.
   // E.g. a student can't be on "admin" or "drive"; a signed-out user can't be
   // on "explore" or "map" (those prompt sign-in, but we keep the nav clean).
@@ -657,9 +674,10 @@ function Hero({
           </Reveal>
         </div>
 
-        {/* Right column — phone mockup + photo card stacked */}
-        <div className="relative flex flex-col items-center justify-center gap-5">
-          <Reveal delay={0.25} y={40}>
+        {/* Right column — phone floats on top of the photo card */}
+        <div className="relative flex flex-col items-center justify-center">
+          {/* Phone — floats above the card with shadow + higher z-index */}
+          <Reveal delay={0.2} y={20} className="relative z-20">
             <PhoneMockup
               origin={origin}
               setOrigin={setOrigin}
@@ -669,13 +687,13 @@ function Hero({
             />
           </Reveal>
 
-          {/* Photo card — wider than the phone, glass-transparent caption,
-              tilt + glare on hover. Sits right under the phone mockup. */}
-          <Reveal delay={0.35} y={30}>
-            <TiltCard max={8} className="w-[340px] max-w-full rounded-2xl">
+          {/* Photo card — bigger than the phone (400px), pulled up so the
+              phone overlaps its top. Glass-transparent, tilt + glare on hover. */}
+          <Reveal delay={0.35} y={30} className="relative z-10 -mt-14">
+            <TiltCard max={6} className="w-[400px] max-w-full rounded-2xl">
               <div className="overflow-hidden rounded-2xl border border-glass-border glass shadow-card">
-                {/* Image — warm editorial bus photo, not too tall */}
-                <div className="relative h-28 overflow-hidden sm:h-32">
+                {/* Image — warm editorial bus photo */}
+                <div className="relative h-36 overflow-hidden">
                   <img
                     src="/images/card-hero-bus.png"
                     alt="Coaster bus on a Ghana highway at golden hour"
@@ -683,7 +701,7 @@ function Hero({
                     loading="lazy"
                   />
                   {/* Scrim for caption legibility */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-belt/70 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-belt/80 via-transparent to-transparent" />
                   {/* Live tracking badge */}
                   <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium backdrop-blur">
                     <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
@@ -691,7 +709,7 @@ function Hero({
                   </div>
                 </div>
                 {/* Glass caption — semi-transparent so hero mesh shows through */}
-                <div className="flex items-center justify-between gap-3 p-4">
+                <div className="flex items-center justify-between gap-3 p-5">
                   <div>
                     <span className="eyebrow text-tan">The ride</span>
                     <h3 className="mt-1 font-display text-sm font-medium leading-tight">
