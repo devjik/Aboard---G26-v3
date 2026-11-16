@@ -35,6 +35,11 @@ const MapErrorBoundary = dynamic(
   { ssr: false },
 );
 
+const LiveMapView = dynamic(
+  () => import("./live-map-view").then((m) => m.LiveMapView),
+  { ssr: false },
+);
+
 export interface RealMapViewProps {
   user?: { id: string; name: string; role: string } | null;
   trips?: Array<{ id: string; originName: string; destName: string; departureAt?: string }>;
@@ -190,7 +195,17 @@ export function RealMapView({
       {/* Full-width map — wrapped in error boundary so a maplibre/WebGL
           crash doesn't take down the whole page. */}
       <div className="relative h-[480px] overflow-hidden rounded-2xl border border-border bg-card shadow-card sm:h-[580px]">
-        <MapErrorBoundary>
+        <MapErrorBoundary
+          fallback={
+            <LiveMapView
+              stops={stops}
+              driverPosition={driver}
+              tripId={tripDetail?.id}
+              status={tripDetail?.status}
+              className="h-full w-full rounded-2xl"
+            />
+          }
+        >
           <MapInner
             userPosition={userPosition}
             driverPosition={driver}

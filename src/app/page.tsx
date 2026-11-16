@@ -1375,7 +1375,20 @@ function ExploreView({
       <TripsExplorer
         trips={trips}
         onSelectTrip={onSelectTrip}
-        onSelectRoute={(_r, _d) => undefined}
+        onSelectRoute={(route, departure) => {
+          // When a departure time or "Book now" is clicked on a route card,
+          // find the matching trip and open the booking sheet.
+          if (departure?.tripId) {
+            const trip = trips.find((t) => t.id === departure.tripId);
+            if (trip) {
+              onSelectTrip(trip);
+            } else {
+              toast("Trip not found", {
+                description: "This departure may have been removed. Try another time.",
+              });
+            }
+          }
+        }}
       />
     </div>
   );
