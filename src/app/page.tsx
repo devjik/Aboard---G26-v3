@@ -133,6 +133,20 @@ export default function Home() {
   const queryClient = useQueryClient();
   const [locationPromptOpen, setLocationPromptOpen] = useState(false);
 
+  // Gate: buttons that lead to role-protected views (Find a trip, Live map,
+  // How it works) open the sign-in popup when the user isn't signed in.
+  // Once signed in, the callback proceeds to the intended destination.
+  const requireAuth = (callback: () => void, reason?: string) => {
+    if (user) {
+      callback();
+    } else {
+      toast("Sign in to continue", {
+        description: reason ?? "You need an account to access this.",
+      });
+      setSignInOpen(true);
+    }
+  };
+
   // Guard: if the user's role doesn't allow the current view, fall back to home.
   // E.g. a student can't be on "admin" or "drive"; a signed-out user can't be
   // on "explore" or "map" (those prompt sign-in, but we keep the nav clean).
@@ -202,8 +216,18 @@ export default function Home() {
               transition={{ duration: 0.25 }}
             >
               <Hero
-                onExplore={() => setView("explore")}
-                onOpenMap={() => setView("map")}
+                onExplore={() =>
+                  requireAuth(
+                    () => setView("explore"),
+                    "Sign in to search trips and book a seat.",
+                  )
+                }
+                onOpenMap={() =>
+                  requireAuth(
+                    () => setView("map"),
+                    "Sign in to see live bus positions on the map.",
+                  )
+                }
                 tripsCount={allTrips.length}
               />
               <Stats />
@@ -218,7 +242,23 @@ export default function Home() {
               <Roles />
               <RoutesShowcase />
               <FAQSection />
-              <CTASection onExplore={() => setView("explore")} />
+              <CTASection
+                onExplore={() =>
+                  requireAuth(
+                    () => setView("explore"),
+                    "Sign in to search trips and book a seat.",
+                  )
+                }
+                onHowItWorks={() =>
+                  requireAuth(
+                    () =>
+                      document
+                        .getElementById("how-it-works")
+                        ?.scrollIntoView({ behavior: "smooth" }),
+                    "Sign in to see how Aboard works.",
+                  )
+                }
+              />
             </motion.div>
           )}
           {view === "explore" && (
@@ -891,7 +931,10 @@ function TripCardMini({
 
 function HowItWorks() {
   return (
-    <section className="bg-grad-belt py-16 text-belt-foreground">
+    <section
+      id="how-it-works"
+      className="bg-grad-belt py-16 text-belt-foreground scroll-mt-16"
+    >
       <div className="mx-auto w-full max-w-6xl px-4">
         <div className="mb-10 text-center">
           <span className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium">
@@ -1223,7 +1266,13 @@ function FAQSection() {
   );
 }
 
-function CTASection({ onExplore }: { onExplore: () => void }) {
+function CTASection({
+  onExplore,
+  onHowItWorks,
+}: {
+  onExplore: () => void;
+  onHowItWorks: () => void;
+}) {
   return (
     <section
       className="belt relative overflow-hidden py-24"
@@ -1260,6 +1309,7 @@ function CTASection({ onExplore }: { onExplore: () => void }) {
             </MagneticWrap>
             <MagneticWrap strength={0.3}>
               <Button
+                onClick={onHowItWorks}
                 variant="outline"
                 size="lg"
                 className="rounded-full border-belt-foreground/20 bg-transparent px-7 text-base font-medium text-belt-foreground hover:bg-belt-foreground/10"
