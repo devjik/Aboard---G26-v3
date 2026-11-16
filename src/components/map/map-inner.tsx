@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import {
   Map,
   MapMarker,
@@ -8,7 +7,6 @@ import {
   MarkerPopup,
   MapControls,
   MapRoute,
-  useMap,
   type Theme,
 } from "@/components/ui/map";
 import { useThemeStore } from "@/lib/theme";
@@ -47,33 +45,35 @@ export interface MapInnerProps {
   className?: string;
 }
 
-/** FitBounds — child of <Map>, calls maplibre fitBounds on point changes. */
-function FitBounds({
-  points,
-}: {
-  points: Array<{ lat: number; lng: number }>;
-}) {
-  const map = useMap();
-  useEffect(() => {
-    if (!map || points.length === 0) return;
-    // maplibre expects [lng, lat] pairs
-    const lngLats = points.map((p) => [p.lng, p.lat] as [number, number]);
-    const lngs = lngLats.map((c) => c[0]);
-    const lats = lngLats.map((c) => c[1]);
-    const sw: [number, number] = [Math.min(...lngs), Math.min(...lats)];
-    const ne: [number, number] = [Math.max(...lngs), Math.max(...lats)];
-    // pad by ~25% so markers aren't at the very edge
-    const padLng = (ne[0] - sw[0]) * 0.25 || 0.1;
-    const padLat = (ne[1] - sw[1]) * 0.25 || 0.1;
-    map.fitBounds(
-      [
-        [sw[0] - padLng, sw[1] - padLat],
-        [ne[0] + padLng, ne[1] + padLat],
-      ],
-      { animate: true, duration: 800 },
-    );
-  }, [map, points]);
-  return null;
+/** Compute center [lng, lat] and zoom from a set of points. */
+function computeViewport(points: Array<{ lat: number; lng: number }>): {
+  center: [number, number];
+  zoom: number;
+} {
+  if (points.length === 0) {
+    return { center: [-1.2466, 5.1053], zoom: 7 }; // Cape Coast default
+  }
+  if (points.length === 1) {
+    return { center: [points[0].lng, points[0].lat], zoom: 10 };
+  }
+  const lngs = points.map((p) => p.lng);
+  const lats = points.map((p) => p.lat);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const centerLng = (minLng + maxLng) / 2;
+  const centerLat = (minLat + maxLat) / 2;
+  const span = Math.max(maxLng - minLng, maxLat - minLat);
+  // Rough zoom heuristic based on degree span
+  let zoom = 7;
+  if (span > 5) zoom = 5;
+  else if (span > 2) zoom = 6;
+  else if (span > 1) zoom = 7;
+  else if (span > 0.5) zoom = 9;
+  else if (span > 0.1) zoom = 11;
+  else zoom = 13;
+  return { center: [centerLng, centerLat], zoom };
 }
 
 export function MapInner({
@@ -92,28 +92,24 @@ export function MapInner({
   for (const s of stops) allPoints.push(s);
   const line = routeLine ?? stops.map((s) => ({ lat: s.lat, lng: s.lng }));
 
+  // Compute center + zoom directly from points (no fitBounds needed)
+  const { center, zoom } = computeViewport(allPoints);
+
   // maplibre [lng, lat] pairs for the route
   const routeCoords: [number, number][] = line.map((p) => [p.lng, p.lat]);
-
-  // Default center: Cape Coast if no points
-  const center: [number, number] = allPoints[0]
-    ? [allPoints[0].lng, allPoints[0].lat]
-    : [-1.2466, 5.1053];
 
   return (
     <div className={className} style={{ position: "relative" }}>
       <style>{KEYFRAMES}</style>
       <Map
         center={center}
-        zoom={7}
+        zoom={zoom}
         theme={mapTheme}
         scrollZoom={false}
         className="h-[420px] w-full overflow-hidden rounded-2xl border border-border"
         attributionControl
       >
         <MapControls showZoom showLocate={false} showFullscreen={false} />
-
-        <FitBounds points={allPoints} />
 
         {routeCoords.length > 1 && (
           <MapRoute
