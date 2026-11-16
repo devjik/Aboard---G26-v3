@@ -14,7 +14,6 @@ editorial mood consistent without broken image icons.
 |---|---|---|---|
 | Hero (full-bleed) | `hero.jpg` | 2400×1600 | Landing hero background (optional — current design uses mesh gradient) |
 | Hero 3D fallback | `hero-bus-fallback.jpg` | 1200×800 | Static image shown while 3D model loads |
-| Hero photo card | `card-hero-bus.png` | 1344×768 | Glass tilt card below phone mockup in hero — "The ride" caption |
 
 ## How it works (5 steps)
 

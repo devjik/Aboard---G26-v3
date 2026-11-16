@@ -674,10 +674,9 @@ function Hero({
           </Reveal>
         </div>
 
-        {/* Right column — phone floats on top of the photo card */}
-        <div className="relative flex flex-col items-center justify-center">
-          {/* Phone — floats above the card with shadow + higher z-index */}
-          <Reveal delay={0.2} y={20} className="relative z-20">
+        {/* Right column — phone mockup */}
+        <div className="relative flex items-center justify-center">
+          <Reveal delay={0.25} y={40}>
             <PhoneMockup
               origin={origin}
               setOrigin={setOrigin}
@@ -685,44 +684,6 @@ function Hero({
               setDest={setDest}
               onExplore={onExplore}
             />
-          </Reveal>
-
-          {/* Photo card — bigger than the phone (400px), pulled up so the
-              phone overlaps its top. Glass-transparent, tilt + glare on hover. */}
-          <Reveal delay={0.35} y={30} className="relative z-10 -mt-14">
-            <TiltCard max={6} className="w-[400px] max-w-full rounded-2xl">
-              <div className="overflow-hidden rounded-2xl border border-glass-border glass shadow-card">
-                {/* Image — warm editorial bus photo */}
-                <div className="relative h-36 overflow-hidden">
-                  <img
-                    src="/images/card-hero-bus.png"
-                    alt="Coaster bus on a Ghana highway at golden hour"
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                  {/* Scrim for caption legibility */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-belt/80 via-transparent to-transparent" />
-                  {/* Live tracking badge */}
-                  <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium backdrop-blur">
-                    <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-                    Live tracking
-                  </div>
-                </div>
-                {/* Glass caption — semi-transparent so hero mesh shows through */}
-                <div className="flex items-center justify-between gap-3 p-5">
-                  <div>
-                    <span className="eyebrow text-tan">The ride</span>
-                    <h3 className="mt-1 font-display text-sm font-medium leading-tight">
-                      Comfort on the road
-                    </h3>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">
-                      Seat-assigned · GPS · No standing
-                    </p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                </div>
-              </div>
-            </TiltCard>
           </Reveal>
         </div>
       </div>
