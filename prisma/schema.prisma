@@ -1,13 +1,13 @@
 // Aboard Prisma schema.
-// Target: SQLite. Money is stored as Int (pesewa). Enums are stored as String
-// (SQLite has no native ENUM type).
+// Target: PostgreSQL (Supabase). Money is stored as Int (pesewa).
+// Enums are stored as String for cross-database compatibility.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

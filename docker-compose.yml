@@ -1,5 +1,23 @@
-# Aboard — Docker Compose (web app + optional tracking service)
+# Aboard — Docker Compose (web app + PostgreSQL + optional tracking)
 services:
+  # PostgreSQL database — port 5432
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: aboard
+      POSTGRES_PASSWORD: aboarddev
+      POSTGRES_DB: aboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - aboard_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aboard"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   # Main Next.js app — port 3000
   web:
     build: .
@@ -9,17 +27,17 @@ services:
       - .:/app
       - /app/node_modules
       - /app/.next
-      - /app/db
     environment:
-      - DATABASE_URL=file:./db/custom.db
+      - DATABASE_URL=postgresql://aboard:aboarddev@db:5432/aboard?schema=public
       - ABOARD_SESSION_SECRET=aboard-dev-secret-change-me-32-chars-min
       - ABOARD_PAYMENT_SANDBOX_KEY=aboard-sandbox-key
       - NODE_ENV=development
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
   # Socket.IO tracking mini-service — port 3003 (optional)
-  # Only needed for live driver GPS broadcast. The app works without it
-  # (the live map shows stops + simulated driver position).
   tracker:
     build: .
     ports:
@@ -28,8 +46,14 @@ services:
       - .:/app
       - /app/node_modules
     environment:
-      - DATABASE_URL=file:./db/custom.db
+      - DATABASE_URL=postgresql://aboard:aboarddev@db:5432/aboard?schema=public
       - ABOARD_SESSION_SECRET=aboard-dev-secret-change-me-32-chars-min
     command: ["bun", "--hot", "mini-services/tracking/index.ts"]
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     profiles: ["full"]  # only starts with: docker compose --profile full up
+
+volumes:
+  aboard_pg:
