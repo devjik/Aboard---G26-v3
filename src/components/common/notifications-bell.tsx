@@ -120,7 +120,7 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -8, scale: 0.97 }}
               transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-              className="absolute right-0 top-full z-50 mt-2 w-[calc(100vw-2rem)] max-w-80 overflow-hidden rounded-2xl border border-border bg-card shadow-card"
+              className="fixed left-1/2 top-16 z-50 mt-2 w-[calc(100vw-2rem)] max-w-80 -translate-x-1/2 overflow-hidden rounded-2xl border border-border bg-card shadow-card sm:absolute sm:left-auto sm:right-0 sm:top-full sm:translate-x-0"
             >
               {/* Header — with close button */}
               <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
