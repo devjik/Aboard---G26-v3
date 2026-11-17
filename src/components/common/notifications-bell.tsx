@@ -90,7 +90,7 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
   };
 
   const headerContent = (
-    <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="flex shrink-0 items-center justify-between border-b border-border px-4 py-3">
       <div className="flex items-center gap-2">
         <Bell className="size-4 text-primary" />
         <h3 className="font-display text-sm font-semibold">Notifications</h3>
@@ -123,7 +123,7 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
   );
 
   const listContent = (
-    <div className="max-h-[85vh] overflow-y-auto sm:max-h-80">
+    <div className="flex-1 overflow-y-auto sm:max-h-80">
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
           <Bell className="size-6 text-muted-foreground/40" />
@@ -174,7 +174,7 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
   );
 
   const footerContent = (
-    <div className="border-t border-border bg-muted/30 px-4 py-2 text-center text-[10px] text-muted-foreground">
+    <div className="shrink-0 border-t border-border bg-muted/30 px-4 py-2 text-center text-[10px] text-muted-foreground">
       In-app notifications · SMS reserved for parents (Phase 2)
     </div>
   );
@@ -235,10 +235,10 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-x-0 bottom-0 z-50 overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl sm:hidden"
+              className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl sm:hidden"
             >
               {/* Drag handle */}
-              <div className="flex justify-center pt-2 pb-1">
+              <div className="flex shrink-0 justify-center pt-2 pb-1">
                 <span className="h-1 w-10 rounded-full bg-border" />
               </div>
               {headerContent}
