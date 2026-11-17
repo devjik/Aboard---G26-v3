@@ -230,12 +230,16 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
             </motion.div>
 
             {/* Mobile: bottom sheet (hidden on desktop) */}
+            {/* Uses dvh (dynamic viewport height) instead of vh — vh includes
+                the mobile browser's address bar, causing the sheet to exceed
+                the visible area. dvh excludes browser UI. */}
             <motion.div
               initial={{ y: "100%" }}
               animate={{ y: 0 }}
               exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl sm:hidden"
+              className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80dvh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl sm:hidden"
+              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
             >
               {/* Drag handle */}
               <div className="flex shrink-0 justify-center pt-2 pb-1">
