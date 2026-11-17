@@ -62,6 +62,12 @@ export function RealMapView({
   const [skipped, setSkipped] = useState(false);
   const [tripsListOpen, setTripsListOpen] = useState(false);
 
+  // On desktop (≥640px), open the trip list by default so it's visible
+  // without needing to tap. On mobile it stays collapsed to not cover the map.
+  useEffect(() => {
+    if (window.innerWidth >= 640) setTripsListOpen(true);
+  }, []);
+
   const stops = useMemo(() => {
     if (tripDetail?.stops) return tripDetail.stops;
     return [];
@@ -253,37 +259,35 @@ export function RealMapView({
           </div>
         )}
 
-        {/* ── Mobile toggle button — shows/hides the trip list on small screens ── */}
-        <button
-          onClick={() => setTripsListOpen((v) => !v)}
-          className="absolute right-3 top-12 z-30 flex items-center gap-1.5 rounded-full border border-border/50 bg-card/90 px-3 py-1.5 text-xs font-medium shadow-card backdrop-blur-md sm:hidden"
-        >
-          <Bus className="size-3.5 text-primary" />
-          <span>Trips</span>
-          <span className="text-[10px] text-muted-foreground">
-            ({(trips ?? tripList.data?.items ?? []).slice(0, 8).length})
-          </span>
-          {tripsListOpen && <X className="size-3 text-muted-foreground" />}
-        </button>
+        {/* ── Toggle button — shows/hides the trip list (all screen sizes) ── */}
+        {/* Visible when the list is closed so users can reopen it */}
+        {!tripsListOpen && (
+          <button
+            onClick={() => setTripsListOpen(true)}
+            className="absolute right-3 top-12 z-30 flex items-center gap-1.5 rounded-full border border-border/50 bg-card/90 px-3 py-1.5 text-xs font-medium shadow-card backdrop-blur-md"
+          >
+            <Bus className="size-3.5 text-primary" />
+            <span>Trips</span>
+            <span className="text-[10px] text-muted-foreground">
+              ({(trips ?? tripList.data?.items ?? []).slice(0, 8).length})
+            </span>
+          </button>
+        )}
 
         {/* ── Floating trip list — compact, semi-transparent ── */}
-        {/* On mobile: hidden by default, toggled by the button above */}
-        {/* On desktop (sm+): always visible */}
-        <div className={cn(
-          "absolute right-3 top-12 z-30 w-56 max-h-[calc(100%-6rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card/70 p-2.5 shadow-card backdrop-blur-md scrollbar-thin",
-          tripsListOpen ? "block" : "hidden",
-          "sm:block",
-        )}>
+        {/* Visibility controlled by tripsListOpen state on ALL screen sizes */}
+        {tripsListOpen && (
+        <div className="absolute right-3 top-12 z-30 w-56 max-h-[calc(100%-6rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card/70 p-2.5 shadow-card backdrop-blur-md scrollbar-thin">
           <div className="mb-2 flex items-center gap-1.5 px-1">
             <Bus className="size-3.5 text-primary" />
             <h3 className="font-display text-xs font-semibold text-foreground">Live trips</h3>
             <span className="ml-auto text-[10px] text-muted-foreground">
               {(trips ?? tripList.data?.items ?? []).slice(0, 8).length}
             </span>
-            {/* Close button — mobile only, collapses the list to reveal the map */}
+            {/* Close button — collapses the list to reveal the full map */}
             <button
               onClick={() => setTripsListOpen(false)}
-              className="ml-1 grid size-5 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:hidden"
+              className="ml-1 grid size-5 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               aria-label="Close trip list"
             >
               <X className="size-3" />
@@ -332,6 +336,7 @@ export function RealMapView({
             </div>
           )}
         </div>
+        )}
 
         {/* ── Booking bar — appears at the bottom when a trip is selected ── */}
         {/* Shows the route + price + a "Book" button. Does NOT auto-open the booking sheet. */}

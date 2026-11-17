@@ -202,20 +202,10 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
         </AnimatePresence>
       </button>
 
-      {/* Mobile: backdrop + bottom sheet */}
+      {/* Notifications panel */}
       <AnimatePresence>
         {open && (
           <>
-            {/* Backdrop — mobile only */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              onClick={() => setOpen(false)}
-              className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm sm:hidden"
-            />
-
             {/* Desktop: dropdown panel (hidden on mobile) */}
             <motion.div
               initial={{ opacity: 0, y: 8, scale: 0.97 }}
@@ -229,25 +219,78 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
               {footerContent}
             </motion.div>
 
-            {/* Mobile: bottom sheet (hidden on desktop) */}
-            {/* Uses dvh (dynamic viewport height) instead of vh — vh includes
-                the mobile browser's address bar, causing the sheet to exceed
-                the visible area. dvh excludes browser UI. */}
+            {/* Mobile: full-screen overlay (no vh/dvh needed — fills viewport) */}
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed inset-x-0 bottom-0 z-50 flex max-h-[80dvh] flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card shadow-2xl sm:hidden"
-              style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="fixed inset-0 z-[100] flex flex-col bg-card sm:hidden"
             >
-              {/* Drag handle */}
-              <div className="flex shrink-0 justify-center pt-2 pb-1">
-                <span className="h-1 w-10 rounded-full bg-border" />
+              {/* Backdrop tap zone (top area above the panel) */}
+              <div
+                onClick={() => setOpen(false)}
+                className="shrink-0 bg-black/40 backdrop-blur-sm"
+                style={{ height: "12vh" }}
+              />
+
+              {/* Main panel — fills the rest of the screen */}
+              <div className="flex flex-1 flex-col overflow-hidden rounded-t-2xl border-t border-border bg-card">
+                {/* Drag handle */}
+                <div className="flex shrink-0 justify-center pt-2 pb-1">
+                  <span className="h-1 w-10 rounded-full bg-border" />
+                </div>
+                {headerContent}
+                <div className="flex-1 overflow-y-auto">
+                  {items.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
+                      <Bell className="size-6 text-muted-foreground/40" />
+                      <p className="text-xs text-muted-foreground">No notifications yet</p>
+                    </div>
+                  ) : (
+                    items.map((n) => {
+                      const isRead = n.status === "READ";
+                      return (
+                        <button
+                          key={n.id}
+                          onClick={async () => {
+                            if (!isRead) {
+                              await apiClient.notifications.markRead(n.id);
+                              qc.invalidateQueries({ queryKey: ["notifications"] });
+                            }
+                          }}
+                          className={cn(
+                            "flex w-full items-start gap-2.5 border-b border-border/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-muted/40",
+                            !isRead && "bg-primary/5"
+                          )}
+                        >
+                          <span className="mt-0.5 shrink-0">{iconFor(n)}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={cn("text-sm", !isRead ? "font-semibold" : "font-medium text-muted-foreground")}>
+                                {n.title}
+                              </span>
+                              {!isRead && <span className="size-2 shrink-0 rounded-full bg-primary" />}
+                            </div>
+                            <p className="mt-0.5 text-xs text-muted-foreground">{n.body}</p>
+                            <span className="mt-1 inline-flex items-center gap-1 text-[10px] text-muted-foreground/70">
+                              <Clock className="size-2.5" />
+                              {new Date(n.createdAt).toLocaleString("en-GH", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                day: "numeric",
+                                month: "short",
+                                hour12: false,
+                              })}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                {footerContent}
               </div>
-              {headerContent}
-              {listContent}
-              {footerContent}
             </motion.div>
           </>
         )}
