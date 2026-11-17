@@ -280,12 +280,26 @@ export function RealMapView({
             <span className="ml-auto text-[10px] text-muted-foreground">
               {(trips ?? tripList.data?.items ?? []).slice(0, 8).length}
             </span>
+            {/* Close button — mobile only, collapses the list to reveal the map */}
+            <button
+              onClick={() => setTripsListOpen(false)}
+              className="ml-1 grid size-5 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:hidden"
+              aria-label="Close trip list"
+            >
+              <X className="size-3" />
+            </button>
           </div>
           <div className="space-y-1">
             {(trips ?? tripList.data?.items ?? []).slice(0, 8).map((t) => (
               <button
                 key={t.id}
-                onClick={() => onSelectTrip?.(t.id)}
+                onClick={() => {
+                  onSelectTrip?.(t.id);
+                  // Auto-collapse the list on mobile so the map is fully
+                  // visible after selecting a trip. On desktop (sm:block)
+                  // the list stays open regardless.
+                  setTripsListOpen(false);
+                }}
                 className={cn(
                   "flex w-full items-center gap-1.5 rounded-lg border px-2 py-1.5 text-left text-[11px] transition-all",
                   tripDetail?.id === t.id
