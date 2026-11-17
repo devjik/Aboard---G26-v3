@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { io, Socket } from "socket.io-client";
-import { TRACKING_SERVICE_PORT } from "@/lib/config/app";
+import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 
 export interface DriverPosition {
   lat: number;
@@ -15,43 +14,64 @@ export interface DriverPosition {
 }
 
 /**
- * Manages the Socket.IO connection to the tracking mini-service.
- * - Drivers call `broadcastPosition(tripId, lat, lng)` to send their GPS.
- * - Students call `subscribe(tripId)` and receive positions via `onPosition`.
- * - The connection URL uses `?XTransformPort=3003` per the Caddy gateway rule.
+ * Real-time tracking hook using Supabase Realtime Broadcast.
+ *
+ * Replaces the previous Socket.IO implementation. Uses ephemeral
+ * Broadcast channels (positions are not persisted — they're broadcast
+ * and received in real-time only).
+ *
+ * Channel naming: `trip:<tripId>` — only users who know the tripId
+ * can subscribe. For production with strict access control, add
+ * Realtime Authorization webhooks (see Supabase docs).
+ *
+ * If Supabase is not configured (no env vars), falls back to a
+ * disconnected state — the RealMapView will use simulated driver
+ * positions instead.
  */
 export function useTrackingSocket() {
-  const socketRef = useRef<Socket | null>(null);
   const [connected, setConnected] = useState(false);
+  const mounted = useRef(true);
 
   useEffect(() => {
-    const sock = io("/?XTransformPort=" + TRACKING_SERVICE_PORT, {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionDelay: 1000,
-    });
-    socketRef.current = sock;
-
-    sock.on("connect", () => setConnected(true));
-    sock.on("disconnect", () => setConnected(false));
-
+    mounted.current = true;
+    const supabase = getSupabase();
+    if (supabase) {
+      // Supabase Realtime auto-connects and auto-reconnects.
+      // We mark as connected once the client is created.
+      setConnected(true);
+    } else {
+      // Supabase not configured — simulation mode
+      setConnected(false);
+    }
     return () => {
-      sock.disconnect();
-      socketRef.current = null;
+      mounted.current = false;
     };
   }, []);
 
   /** Driver: broadcast current GPS for a trip */
   const broadcastPosition = useCallback(
-    (tripId: string, lat: number, lng: number, opts?: { speed?: number; heading?: number; accuracy?: number }) => {
-      socketRef.current?.emit("driver:location", {
-        tripId,
-        lat,
-        lng,
-        speed: opts?.speed,
-        heading: opts?.heading,
-        accuracy: opts?.accuracy,
-        recordedAt: new Date().toISOString(),
+    (
+      tripId: string,
+      lat: number,
+      lng: number,
+      opts?: { speed?: number; heading?: number; accuracy?: number },
+    ) => {
+      const supabase = getSupabase();
+      if (!supabase) return; // no-op if not configured
+
+      const channel = supabase.channel(`trip:${tripId}`);
+      channel.send({
+        type: "broadcast",
+        event: "driver:location",
+        payload: {
+          tripId,
+          lat,
+          lng,
+          speed: opts?.speed,
+          heading: opts?.heading,
+          accuracy: opts?.accuracy,
+          recordedAt: new Date().toISOString(),
+        },
       });
     },
     [],
@@ -59,30 +79,67 @@ export function useTrackingSocket() {
 
   /** Driver: stop broadcasting (bus arrived / trip ended) */
   const stopBroadcast = useCallback((tripId: string) => {
-    socketRef.current?.emit("driver:stop", tripId);
+    const supabase = getSupabase();
+    if (!supabase) return;
+
+    supabase.channel(`trip:${tripId}`).send({
+      type: "broadcast",
+      event: "driver:stop",
+      payload: { tripId },
+    });
   }, []);
 
-  /** Student: subscribe to a trip's driver positions */
-  const subscribe = useCallback((tripId: string, onPosition: (pos: DriverPosition) => void, onStopped?: () => void) => {
-    const sock = socketRef.current;
-    if (!sock) return () => {};
-    sock.emit("subscribe:trip", tripId);
-    const posHandler = (payload: DriverPosition) => onPosition(payload);
-    const stopHandler = () => onStopped?.();
-    sock.on("trip:location", posHandler);
-    sock.on("trip:stopped", stopHandler);
-    return () => {
-      sock.emit("unsubscribe:trip", tripId);
-      sock.off("trip:location", posHandler);
-      sock.off("trip:stopped", stopHandler);
-    };
-  }, []);
+  /** Student/Parent: subscribe to a trip's driver positions */
+  const subscribe = useCallback(
+    (
+      tripId: string,
+      onPosition: (pos: DriverPosition) => void,
+      onStopped?: () => void,
+    ) => {
+      const supabase = getSupabase();
+      if (!supabase) {
+        // Not configured — return no-op cleanup
+        return () => {};
+      }
+
+      const channel = supabase.channel(`trip:${tripId}`);
+
+      channel.on("broadcast", { event: "driver:location" }, (msg: any) => {
+        if (msg?.payload) {
+          onPosition(msg.payload as DriverPosition);
+        }
+      });
+
+      channel.on("broadcast", { event: "driver:stop" }, () => {
+        onStopped?.();
+      });
+
+      channel.subscribe((status: string) => {
+        if (status === "SUBSCRIBED" && mounted.current) {
+          setConnected(true);
+        } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          if (mounted.current) setConnected(false);
+        }
+      });
+
+      // Cleanup: remove the channel when the subscriber unmounts
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    },
+    [],
+  );
 
   return { connected, broadcastPosition, stopBroadcast, subscribe };
 }
 
 /** Haversine distance in meters between two lat/lng points. */
-export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+export function distanceMeters(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number,
+): number {
   const R = 6371000; // Earth radius in meters
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
@@ -95,3 +152,6 @@ export function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: n
 
 /** Boarding threshold in meters — when student is this close to driver, notify parent. */
 export const BOARDING_THRESHOLD_M = 200;
+
+/** Whether Supabase Realtime is available (for UI indicators). */
+export const realtimeEnabled = isSupabaseConfigured();

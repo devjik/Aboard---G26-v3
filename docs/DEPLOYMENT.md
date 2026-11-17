@@ -167,49 +167,94 @@ Every `git push` to `main` triggers a production deployment. Every pull request 
 | **Build fails: "prisma generate" error** | Ensure `postinstall` script is in `package.json` (it is). Check Vercel build logs. |
 | **Runtime error: "DATABASE_URL not found"** | Add the env var in Vercel Settings → Environment Variables → redeploy. |
 | **Database connection timeout** | Supabase free tier has connection limits. Use the connection pooler URL (Settings → Database → Connection pooling). |
-| **Map doesn't load** | The map uses WebGL + CARTO tiles. Vercel has internet access, so tiles should load. Check browser console. |
+| **Map doesn't load** | The map uses WebGL + CARTO tiles. Vercel has internet access, so tiles should load. Check browser console. If it crashes, the SVG fallback map shows automatically. |
 | **Sign-in doesn't work (401)** | The session secret must match between local (where you seeded) and Vercel. Set the same `ABOARD_SESSION_SECRET`. |
-| **Notifications not updating** | The app polls every 8s. Real-time push (WebSocket) isn't available on Vercel serverless. |
-| **Socket.IO tracking service** | Can't run on Vercel. Deploy separately on Railway/Render/Fly.io, or skip (simulated driver positions work). |
+| **Real-time tracking not working** | Ensure `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` are set on Vercel. Without them, the app uses simulated driver positions. |
 
 ---
 
-## Socket.IO Tracking Service (Optional)
+## Real-Time Map Tracking (Supabase Realtime)
 
-If you want real-time driver GPS tracking in production:
+The app uses **Supabase Realtime Broadcast** for live driver GPS tracking. This replaces the previous Socket.IO approach and works natively on Vercel (no separate service needed).
 
-### Option A: Deploy separately on Railway
-1. Go to [railway.app](https://railway.app)
-2. Create a new project from your GitHub repo
-3. Set the start command: `bun --hot mini-services/tracking/index.ts`
-4. Set env vars: `DATABASE_URL` (Supabase), `ABOARD_SESSION_SECRET`
-5. Railway gives you a URL like `aboard-tracker.up.railway.app`
-6. Update the app's tracking service URL to point to Railway
+### How it works
 
-### Option B: Skip it (simplest)
-The app works without the tracking service:
-- Live map shows stops + route line (from the database)
-- Driver position is simulated (moves along the route automatically)
-- No real-time GPS broadcast
+- The driver's device broadcasts GPS positions every 3–5 seconds via a Supabase Realtime channel named `trip:<tripId>`
+- Students and linked parents subscribe to that channel and receive positions in real time
+- Positions are ephemeral (broadcast only, not stored in the database)
+- If Supabase env vars aren't set, the app falls back to a **simulated driver** that moves along the route automatically — the map still works, just without real GPS
+
+### Step 1: Get your Supabase API keys
+
+1. Go to your Supabase dashboard → **Settings** (gear icon) → **API**
+2. Copy these two values:
+   - **Project URL:** `https://<your-project>.supabase.co`
+   - **anon public key:** `eyJhbGciOi...` (long string — this is safe to expose to the browser)
+
+### Step 2: Enable Realtime (usually already enabled)
+
+1. Go to Supabase dashboard → **Database** → **Replication**
+2. Ensure **Realtime** is enabled (it's on by default for new projects)
+3. No table-level Realtime needed — we use Broadcast channels (ephemeral, not tied to tables)
+
+### Step 3: Set environment variables
+
+**On Vercel:**
+- Go to Settings → Environment Variables
+- Add:
+  | Key | Value |
+  |---|---|
+  | `NEXT_PUBLIC_SUPABASE_URL` | `https://<your-project>.supabase.co` |
+  | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGciOi...` (your anon key) |
+- Redeploy
+
+**Locally (Docker):**
+Create a `.env` file in the project root:
+```bash
+NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+```
+Then `docker compose up --build` — the Docker Compose reads these from `.env` automatically.
+
+**Locally (without Docker):**
+```bash
+export NEXT_PUBLIC_SUPABASE_URL=https://<your-project>.supabase.co
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOi...
+bun run dev
+```
+
+### Step 4: Test real-time tracking
+
+1. Open the app in two browser windows (or two devices)
+2. In window 1: sign in as **driver** (`+233270000001` / `password123`) → go to Drive → start a trip
+3. In window 2: sign in as **student** (`+233240000001` / `password123`) → go to Live Map
+4. The student should see the bus marker move in real time as the driver's GPS updates
+
+### Without Supabase env vars (simulation mode)
+
+If you don't set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`:
+- The live map still renders with stops + route line
+- A **simulated driver** marker moves along the route automatically (updates every 2 seconds)
+- No real-time GPS broadcast between devices
 - Everything else (booking, payment, tickets, admin) works fully
 
-### Option C: Migrate to Supabase Realtime (future)
-Replace Socket.IO with Supabase Realtime Broadcast for driver positions. This is documented in `docs/PHASE2.md` and is the recommended production approach.
+This is useful for local development and testing without a Supabase project.
 
 ---
 
 ## Summary Checklist
 
 - [ ] Supabase project created
+- [ ] Supabase API keys copied (URL + anon key)
 - [ ] Database connection string copied
 - [ ] `DATABASE_URL` set locally + `bun run db:push` + `bun run db:seed` run
 - [ ] GitHub repo is up to date
 - [ ] Vercel project imported from GitHub
-- [ ] Environment variables set on Vercel (DATABASE_URL, SESSION_SECRET, SANDBOX_KEY)
+- [ ] Environment variables set on Vercel (DATABASE_URL, SESSION_SECRET, SANDBOX_KEY, SUPABASE_URL, SUPABASE_ANON_KEY)
 - [ ] First deployment successful
 - [ ] Demo accounts work on the Vercel URL
+- [ ] Real-time tracking tested (driver in one window, student in another)
 - [ ] (Optional) Custom domain configured
-- [ ] (Optional) Tracking service deployed separately
 
 ---
 
@@ -221,5 +266,8 @@ Replace Socket.IO with Supabase Realtime Broadcast for driver positions. This is
 | `ABOARD_SESSION_SECRET` | Vercel + local | `a1b2c3d4e5f6...` (32+ chars, `openssl rand -hex 32`) |
 | `ABOARD_PAYMENT_SANDBOX_KEY` | Vercel + local | `aboard-sandbox-key` |
 | `NEXT_PUBLIC_APP_URL` | Vercel only | `https://your-app.vercel.app` |
+
+| `NEXT_PUBLIC_SUPABASE_URL` | Vercel + local | `https://your-project.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel + local | `eyJhbGciOi...` (from Supabase Settings → API) |
 
 **Never commit `.env` to git.** The `.gitignore` already excludes it.

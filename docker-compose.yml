@@ -1,4 +1,4 @@
-# Aboard — Docker Compose (web app + PostgreSQL + optional tracking)
+# Aboard — Docker Compose (web app + PostgreSQL)
 services:
   # PostgreSQL database — port 5432
   db:
@@ -19,6 +19,8 @@ services:
       retries: 5
 
   # Main Next.js app — port 3000
+  # Uses Supabase Realtime for live driver GPS tracking (if env vars set).
+  # Without Supabase env vars, falls back to simulated driver positions.
   web:
     build: .
     ports:
@@ -32,28 +34,15 @@ services:
       - ABOARD_SESSION_SECRET=aboard-dev-secret-change-me-32-chars-min
       - ABOARD_PAYMENT_SANDBOX_KEY=aboard-sandbox-key
       - NODE_ENV=development
+      # Supabase Realtime — set these to enable live driver GPS tracking.
+      # If not set, the app uses simulated driver positions on the live map.
+      # Get from: Supabase Dashboard → Settings → API
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL:-}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
-
-  # Socket.IO tracking mini-service — port 3003 (optional)
-  tracker:
-    build: .
-    ports:
-      - "3003:3003"
-    volumes:
-      - .:/app
-      - /app/node_modules
-    environment:
-      - DATABASE_URL=postgresql://aboard:aboarddev@db:5432/aboard?schema=public
-      - ABOARD_SESSION_SECRET=aboard-dev-secret-change-me-32-chars-min
-    command: ["bun", "--hot", "mini-services/tracking/index.ts"]
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: unless-stopped
-    profiles: ["full"]  # only starts with: docker compose --profile full up
 
 volumes:
   aboard_pg:
