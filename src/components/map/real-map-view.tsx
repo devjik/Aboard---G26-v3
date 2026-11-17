@@ -13,6 +13,7 @@ import {
   SkipForward,
   Radio,
   Clock,
+  X,
 } from "lucide-react";
 import { useGeolocation, useDriverSimulation } from "@/lib/hooks/use-geolocation";
 import { useTrackingSocket, distanceMeters, BOARDING_THRESHOLD_M, type DriverPosition } from "@/lib/hooks/use-tracking-socket";
@@ -59,6 +60,7 @@ export function RealMapView({
 }: RealMapViewProps) {
   const geo = useGeolocation();
   const [skipped, setSkipped] = useState(false);
+  const [tripsListOpen, setTripsListOpen] = useState(false);
 
   const stops = useMemo(() => {
     if (tripDetail?.stops) return tripDetail.stops;
@@ -251,8 +253,27 @@ export function RealMapView({
           </div>
         )}
 
-        {/* ── Floating trip list — far right, compact, semi-transparent ── */}
-        <div className="absolute right-3 top-12 z-30 w-56 max-h-[calc(100%-6rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card/70 p-2.5 shadow-card backdrop-blur-md scrollbar-thin">
+        {/* ── Mobile toggle button — shows/hides the trip list on small screens ── */}
+        <button
+          onClick={() => setTripsListOpen((v) => !v)}
+          className="absolute right-3 top-12 z-30 flex items-center gap-1.5 rounded-full border border-border/50 bg-card/90 px-3 py-1.5 text-xs font-medium shadow-card backdrop-blur-md sm:hidden"
+        >
+          <Bus className="size-3.5 text-primary" />
+          <span>Trips</span>
+          <span className="text-[10px] text-muted-foreground">
+            ({(trips ?? tripList.data?.items ?? []).slice(0, 8).length})
+          </span>
+          {tripsListOpen && <X className="size-3 text-muted-foreground" />}
+        </button>
+
+        {/* ── Floating trip list — compact, semi-transparent ── */}
+        {/* On mobile: hidden by default, toggled by the button above */}
+        {/* On desktop (sm+): always visible */}
+        <div className={cn(
+          "absolute right-3 top-12 z-30 w-56 max-h-[calc(100%-6rem)] overflow-y-auto rounded-2xl border border-border/50 bg-card/70 p-2.5 shadow-card backdrop-blur-md scrollbar-thin",
+          tripsListOpen ? "block" : "hidden",
+          "sm:block",
+        )}>
           <div className="mb-2 flex items-center gap-1.5 px-1">
             <Bus className="size-3.5 text-primary" />
             <h3 className="font-display text-xs font-semibold text-foreground">Live trips</h3>

@@ -123,7 +123,7 @@ export function NotificationsBell({ userId }: NotificationsBellProps) {
   );
 
   const listContent = (
-    <div className="max-h-[60vh] overflow-y-auto sm:max-h-80">
+    <div className="max-h-[85vh] overflow-y-auto sm:max-h-80">
       {items.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-8 text-center">
           <Bell className="size-6 text-muted-foreground/40" />
