@@ -247,7 +247,6 @@ export default function Home() {
                 }
                 tripsCount={allTrips.length}
               />
-              <Stats />
               <TripsSection
                 trips={trips}
                 onSelectTrip={(t) => setBookingTrip(t)}
@@ -813,34 +812,6 @@ function PhoneMockup({
         </div>
       </div>
     </motion.div>
-  );
-}
-
-function Stats() {
-  const stats = [
-    { label: "Routes", value: "10+", icon: <RouteIcon className="h-4 w-4" /> },
-    { label: "Students served", value: "12k+", icon: <Users className="h-4 w-4" /> },
-    { label: "Avg. delay", value: "<4 min", icon: <Clock className="h-4 w-4" /> },
-    { label: "Trips / day", value: "30+", icon: <Bus className="h-4 w-4" /> },
-  ];
-  return (
-    <section className="border-y border-border bg-card/40">
-      <div className="mx-auto grid w-full max-w-6xl grid-cols-2 gap-4 px-4 py-8 sm:grid-cols-4">
-        {stats.map((s) => (
-          <div key={s.label} className="flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
-              {s.icon}
-            </span>
-            <div>
-              <div className="font-display text-xl font-bold">{s.value}</div>
-              <div className="text-[11px] text-muted-foreground">
-                {s.label}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
   );
 }
 
