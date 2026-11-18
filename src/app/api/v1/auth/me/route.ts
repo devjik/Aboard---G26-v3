@@ -17,6 +17,19 @@ export async function GET(req: NextRequest) {
       meta: { correlationId: corr },
     }).response;
   }
+
+  // Update lastSeenAt on the user's active session(s) so the admin
+  // "Live Users" view shows who's actually online right now.
+  // This runs on every page load (via the session restore useEffect).
+  await db.session.updateMany({
+    where: {
+      userId: user.id,
+      revokedAt: null,
+      expiresAt: { gt: new Date() },
+    },
+    data: { lastSeenAt: new Date() },
+  }).catch(() => undefined); // non-critical — don't fail the request
+
   const authUser = await buildAuthUser(user);
   return okResponse({ user: authUser }, { correlationId: corr });
 }

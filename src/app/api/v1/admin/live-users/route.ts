@@ -5,12 +5,17 @@ import { getCorrelationId } from "@/lib/auth/guard";
 
 export const dynamic = "force-dynamic";
 
+// A user is considered "live" if their session was seen within this window.
+const LIVE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
 /**
  * GET /api/v1/admin/live-users
  *
- * Returns all users with active (non-expired, non-revoked) sessions.
+ * Returns users who are currently online — their session's lastSeenAt
+ * was updated within the last 5 minutes (via /api/v1/auth/me which
+ * runs on every page load).
+ *
  * Dev bypass: no auth required in development.
- * Includes role, name, phone, and login time.
  */
 export async function GET(req: NextRequest) {
   const corr = getCorrelationId(req);
@@ -22,12 +27,14 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date();
+  const liveThreshold = new Date(now.getTime() - LIVE_THRESHOLD_MS);
 
-  // Find all active sessions
+  // Find sessions seen within the last 5 minutes (truly live users)
   const sessions = await db.session.findMany({
     where: {
       revokedAt: null,
       expiresAt: { gt: now },
+      lastSeenAt: { gt: liveThreshold },
     },
     include: {
       user: {
@@ -41,7 +48,7 @@ export async function GET(req: NextRequest) {
         },
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { lastSeenAt: "desc" },
   });
 
   // Deduplicate by user (one user may have multiple sessions)
@@ -60,12 +67,14 @@ export async function GET(req: NextRequest) {
       role: s.user.role,
       status: s.user.status,
       loggedInAt: s.createdAt.toISOString(),
+      lastSeenAt: s.lastSeenAt.toISOString(),
     }));
 
   return okResponse(
     {
       users,
       count: users.length,
+      threshold: "5 minutes",
     },
     { correlationId: corr },
   );
