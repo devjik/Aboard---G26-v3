@@ -27,11 +27,10 @@ import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/common/empty-state";
 import { BottomSheet } from "@/components/common/bottom-sheet";
 
-type Tab = "dashboard" | "routes" | "bookings" | "live" | "settings";
+type Tab = "dashboard" | "routes" | "bookings" | "settings";
 
 const TABS: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "dashboard", label: "Dashboard", icon: <Activity className="h-4 w-4" /> },
-  { id: "live", label: "Live Users", icon: <Radio className="h-4 w-4" /> },
   { id: "routes", label: "Routes", icon: <RouteIcon className="h-4 w-4" /> },
   { id: "bookings", label: "Bookings", icon: <BarChart3 className="h-4 w-4" /> },
   { id: "settings", label: "Settings", icon: <SettingsIcon className="h-4 w-4" /> },
@@ -122,16 +121,6 @@ export function AdminPanel({ className }: { className?: string }) {
             exit={{ opacity: 0, y: -8 }}
           >
             <BookingsTab />
-          </motion.div>
-        )}
-        {tab === "live" && (
-          <motion.div
-            key="live"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-          >
-            <LiveUsersTab />
           </motion.div>
         )}
         {tab === "settings" && (
@@ -633,96 +622,3 @@ function SkeletonRows() {
   );
 }
 
-/* ============ Live Users tab ============ */
-function LiveUsersTab() {
-  const { data, isLoading } = useQuery({
-    queryKey: ["admin-live-users"],
-    queryFn: () =>
-      apiClient.get<{ users: Array<{ userId: string; name: string; phone: string; email: string | null; role: string; status: string; loggedInAt: string }>; count: number }>("/api/v1/admin/live-users"),
-    refetchInterval: 10000,
-  });
-
-  const users = data?.users ?? [];
-
-  const roleColor: Record<string, string> = {
-    STUDENT: "primary",
-    DRIVER: "success",
-    ADMIN: "accent",
-    PARENT: "warning",
-    OPERATOR: "neutral",
-  };
-
-  const roleIcon: Record<string, string> = {
-    STUDENT: "🎓",
-    DRIVER: "🚌",
-    ADMIN: "⚙️",
-    PARENT: "👤",
-    OPERATOR: "🏢",
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="font-display text-lg font-semibold">Live Users</h2>
-          <p className="text-sm text-muted-foreground">
-            All currently logged-in users · refreshes every 10s
-          </p>
-        </div>
-        <StatusPill tone="success" dot pulse>
-          {data?.count ?? 0} online
-        </StatusPill>
-      </div>
-
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 animate-pulse rounded-xl border border-border bg-muted/40" />
-          ))}
-        </div>
-      ) : users.length === 0 ? (
-        <EmptyState title="No users online" description="Users will appear here when they sign in." />
-      ) : (
-        <div className="space-y-2">
-          {users.map((u, i) => (
-            <motion.div
-              key={u.userId}
-              initial={{ opacity: 0, x: 8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.05 }}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3 shadow-card"
-            >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-grad-primary text-lg text-white">
-                {roleIcon[u.role] ?? "👤"}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="truncate font-semibold">{u.name}</span>
-                  <StatusPill tone={(roleColor[u.role] as any) ?? "neutral"} dot>
-                    {u.role}
-                  </StatusPill>
-                </div>
-                <div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1">
-                    <Phone className="size-3" /> {u.phone}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <Clock className="size-3" />
-                    {new Date(u.loggedInAt).toLocaleString("en-GH", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      day: "numeric",
-                      month: "short",
-                      hour12: false,
-                    })}
-                  </span>
-                </div>
-              </div>
-              <Radio className="size-4 shrink-0 text-success animate-pulse" />
-            </motion.div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
