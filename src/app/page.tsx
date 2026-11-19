@@ -164,6 +164,17 @@ export default function Home() {
       });
   }, []);
 
+  // Heartbeat — every 60 seconds while signed in, call /auth/me to
+  // update lastSeenAt in the database. This keeps the user visible in
+  // the admin 'Live Users' panel for as long as they have the app open.
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => {
+      apiClient.auth.me().catch(() => undefined);
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user]);
+
   // Guard: if the user's role doesn't allow the current view, fall back to home.
   // E.g. a student can't be on "admin" or "drive"; a signed-out user can't be
   // on "explore" or "map" (those prompt sign-in, but we keep the nav clean).
@@ -402,6 +413,9 @@ export default function Home() {
         onClose={() => setSignInOpen(false)}
         onSignedIn={(u) => {
           setUser(u);
+          // Immediately call /auth/me to update lastSeenAt so the admin
+          // Live Users panel sees this user as online right away.
+          apiClient.auth.me().catch(() => undefined);
           // invalidate notifications so the bell picks up the new sign-in notification
           setTimeout(() => {
             queryClient?.invalidateQueries({ queryKey: ["notifications"] });

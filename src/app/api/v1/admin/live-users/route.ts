@@ -6,7 +6,7 @@ import { getCorrelationId } from "@/lib/auth/guard";
 export const dynamic = "force-dynamic";
 
 // A user is considered "live" if their session was seen within this window.
-const LIVE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+const LIVE_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
 
 /**
  * GET /api/v1/admin/live-users
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
     {
       users,
       count: users.length,
-      threshold: "5 minutes",
+      threshold: "10 minutes",
     },
     { correlationId: corr },
   );
